@@ -1,94 +1,113 @@
-# NecessityIQ — Medical Necessity Platform
+# NecessityIQ
 
-![Status](https://img.shields.io/badge/status-active-brightgreen)
-![Type](https://img.shields.io/badge/type-single--page--app-blue)
-![License](https://img.shields.io/badge/license-MIT-purple)
+**AI-powered medical necessity letters, generated in seconds.**
 
-NecessityIQ is an AI-powered medical necessity documentation and analysis platform designed to help healthcare providers build, review, and optimize prior authorization requests and clinical justifications.
+NecessityIQ is a Next.js 14 application that uses OpenAI's GPT-4o to generate professional, insurance-ready medical necessity letters tailored to a patient's diagnosis, requested treatment, and clinical justification.
 
 ---
 
-## 🧠 Features
+## Features
 
-- **AI-Assisted Necessity Analysis** — Analyze clinical documentation and generate medical necessity rationale aligned with payer guidelines
-- **Prior Authorization Builder** — Step-by-step workflow to construct complete, defensible prior auth submissions
-- **Payer Criteria Matching** — Map clinical findings to payer-specific LCD/NCD criteria
-- **Document Upload & Parsing** — Upload clinical notes and records via PDF; auto-extract relevant clinical data using PDF.js
-- **Collapsible Section Editor** — Structured, expandable form sections for efficient data entry
-- **Evidence Linking** — Attach supporting clinical evidence to each necessity claim
-- **Export Ready** — Generate submission-ready summaries for payer portals
+- 🩺 **Detailed case intake form** — patient info, diagnosis, ICD-10, CPT codes, provider details
+- 🤖 **GPT-4o letter generation** — clinically precise, formatted, and persuasive
+- ✏️ **In-browser editing** — review and customize before submitting
+- 🖨️ **Print & copy** — one-click copy to clipboard or print-ready view
+- 🔒 **No data storage** — letters are generated ephemerally; nothing is saved
 
 ---
 
-## 🚀 Getting Started
+## Tech Stack
 
-### Prerequisites
-- Any modern web browser (Chrome, Edge, Firefox, Safari)
-- No installation, build tools, or server required
-
-### Run Locally
-```bash
-# Clone your repository
-git clone https://github.com/your-username/NecessityIQ.git
-cd NecessityIQ
-
-# Open directly in browser
-open index.html
-# or on Windows:
-start index.html
-```
-
-### Deploy to GitHub Pages
-1. Push `index.html` to your repository
-2. Go to **Settings → Pages**
-3. Set source to `main` branch, `/ (root)`
-4. Your app will be live at `https://your-username.github.io/NecessityIQ`
-
----
-
-## 🛠️ Tech Stack
-
-| Technology | Purpose |
+| Layer | Technology |
 |---|---|
-| HTML5 / CSS3 / JavaScript | Core application |
-| [Tailwind CSS](https://tailwindcss.com/) | Utility-first styling |
-| [Lucide Icons](https://lucide.dev/) | UI iconography |
-| [PDF.js](https://mozilla.github.io/pdf.js/) | Clinical document parsing |
-| [Inter](https://fonts.google.com/specimen/Inter) | Typography |
-| [AppSDK AI](https://github.com) | AI chat & analysis engine |
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| AI | OpenAI GPT-4o via `openai` SDK |
+| Deployment | Vercel (recommended) |
 
 ---
 
-## 📁 Project Structure
+## Getting Started
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/your-org/necessityiq.git
+cd necessityiq
+npm install
+```
+
+### 2. Configure environment variables
+
+Create a `.env.local` file in the project root:
+
+```env
+OPENAI_API_KEY=sk-...your-key-here...
+```
+
+> Get your API key at [platform.openai.com](https://platform.openai.com).
+
+### 3. Run the development server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## Project Structure
 
 ```
-NecessityIQ/
-└── index.html       # Complete self-contained application
+necessityiq/
+├── app/
+│   ├── layout.tsx              # Root layout with Header & Footer
+│   ├── page.tsx                # Home page (hero + form + how-it-works)
+│   ├── globals.css             # Tailwind base + custom component classes
+│   └── api/
+│       └── generate-letter/
+│           └── route.ts        # POST /api/generate-letter (OpenAI call)
+├── components/
+│   ├── Header.tsx              # Sticky nav header
+│   ├── Footer.tsx              # Site footer
+│   ├── CaseForm.tsx            # Multi-section intake form
+│   └── LetterPreview.tsx       # Letter display with edit/copy/print
+├── lib/
+│   ├── openai.ts               # OpenAI client singleton
+│   └── templates.ts            # System prompt + user prompt builders
+├── public/
+│   └── favicon.svg             # Site favicon
+├── next.config.mjs
+├── tailwind.config.ts
+├── postcss.config.mjs
+├── tsconfig.json
+├── package.json
+└── README.md
 ```
 
 ---
 
-## 🔑 AI Configuration
+## Deployment
 
-This app uses the built-in AppSDK AI engine for medical necessity analysis. No external API keys are required when deployed through the standard hosting environment.
+### Vercel (recommended)
 
----
-
-## 📋 Use Cases
-
-- Hospital utilization management teams
-- Physician practice prior authorization coordinators
-- Revenue cycle management specialists
-- Insurance case managers reviewing submissions
+1. Push to GitHub
+2. Import the repo at [vercel.com](https://vercel.com)
+3. Add `OPENAI_API_KEY` as an environment variable in the Vercel dashboard
+4. Deploy — done!
 
 ---
 
-## ⚠️ Disclaimer
+## Customization
 
-NecessityIQ is a clinical documentation assistance tool. It does not constitute medical advice and should be used by qualified healthcare professionals only. Always verify AI-generated content against current payer policies and clinical guidelines.
+- **Prompts**: Edit `lib/templates.ts` to adjust the system prompt or letter structure
+- **Model**: Change `"gpt-4o"` in `app/api/generate-letter/route.ts` to `"gpt-4o-mini"` for lower cost
+- **Styling**: Tailwind config and component classes are in `tailwind.config.ts` and `app/globals.css`
 
 ---
 
-## 📄 License
+## Disclaimer
 
-MIT © 2026
+NecessityIQ generates AI-assisted draft letters. All letters should be reviewed by the ordering physician before submission. This tool is not a substitute for professional medical or legal advice.
