@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NecessityIQ — Medical Necessity Platform</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'sans-serif'] },
+      colors: {
+        foreground: { 100:'#fffbf8',150:'#f8f4f1',200:'#efeae7',250:'#e2ddd9',300:'#cfc9c5',350:'#b3ada8',400:'#98918b',450:'#746d68',550:'#635c57',600:'#5a544f',650:'#4c4642',700:'#3f3935',750:'#322d29',800:'#272320',850:'#1d1a17',900:'#14110e' },
+        background: { 100:'#fffbf8',150:'#f8f4f1',200:'#efeae7',250:'#e2ddd9',300:'#cfc9c5',350:'#b3ada8',400:'#98918b',450:'#746d68' },
+        accent: { 100:'#f5f8fd',150:'#eef4fe',200:'#dbeafe',250:'#c4dbfa',300:'#93b5ef',350:'#6e9be4',400:'#5489d6',450:'#3468b0',550:'#2b5899',600:'#244b83',650:'#1e3f6e',700:'#1a355e',750:'#152b4e',800:'#102140',850:'#0c1832',900:'#081025' },
+        stroke: { 100:'#fffbf8',150:'#fff3ea',200:'#f6e8dd',250:'#ebdbce',300:'#dac6b7',350:'#c1a996',400:'#a88c76',450:'#87674e',550:'#745740',600:'#6a4f39',650:'#59422f',700:'#493626' },
+        muted: { 100:'#fffbf8',150:'#fff3ea',200:'#f6e8dd',250:'#ebdbce',300:'#dac6b7',350:'#c1a996',400:'#a88c76',450:'#87674e',550:'#745740',600:'#6a4f39',650:'#59422f',700:'#493626',750:'#3a2a1e',800:'#2d2117',850:'#221811',900:'#17100a' },
+        'system-green': { 200:'#baeec0',300:'#97dfa1',350:'#6cc57b',400:'#32ad52',550:'#01712b',600:'#016826',750:'#093815' },
+        'system-red': { 200:'#ffe4e1',300:'#ffb5ae',350:'#f98981',400:'#e7615b',550:'#ac1922',600:'#9d1920',650:'#821b1e' },
+        'system-yellow': { 100:'#fffbf4',300:'#f3c357',350:'#d6a632',600:'#6c5001' },
+        'system-blue': { 100:'#f5f8fd',200:'#dbeafe',300:'#adcaf6',350:'#7eaae9',400:'#5489d6',550:'#2f5ea3',600:'#274f8c',750:'#1e3a8a' },
+      },
+      borderRadius: { '3xl':'1.25rem','4xl':'1.5rem','5xl':'1.75rem','6xl':'2rem' },
+    }
+  }
+};
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:#f8f4f1;color:#272320;}
+.collapsible-content,.instructions-content{max-height:0;overflow:hidden;transition:max-height 0.4s ease;}
+.collapsible-content.open,.instructions-content.open{max-height:8000px;}
+.ma-subfield{display:none;}.ma-subfield.visible{display:block;}
+.step-number{width:28px;height:28px;border-radius:50%;background:#2563eb;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;}
+.toast-enter{animation:slideDown 0.4s ease forwards;}
+.toast-exit{animation:fadeOut 0.4s ease forwards;}
+@keyframes slideDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeOut{from{opacity:1;}to{opacity:0;}}
+@keyframes welcomeFade{from{opacity:0;}to{opacity:1;}}
+.welcome-anim{animation:welcomeFade 0.3s ease forwards;}
+.next-case-btn{background:#0f766e;color:#fff;border:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:1rem;cursor:pointer;transition:background 0.2s;}
+.next-case-btn:hover{background:#0d6d66;}
+.open-copilot-btn{background:#fff;border:2px solid #2563eb;color:#2563eb;border-radius:10px;padding:10px 20px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.open-copilot-btn:hover{background:#eff6ff;}
+.phi-warning{background:#fef2f2;border-left:4px solid #dc2626;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:0.85rem;color:#991b1b;font-weight:500;}
+select,input,textarea{font-family:'Inter',sans-serif;}
+textarea{resize:vertical;}
+.gauge-circle{transition:stroke-dashoffset 0.8s ease;}
+</style>
+<script>
+var pendingCopyText='';
+var insurerData={
+aetna:{name:'Aetna',policyNumber:'CPB 0743',medicalNecessityDef:'Clinically appropriate, necessary for diagnosis/treatment, not experimental, consistent with accepted standards of medical practice.',conservativeTxRequired:['6 months conservative treatment for fusion','PT minimum 12 weeks','NSAIDs and analgesics','Epidural steroid injections for radiculopathy'],conservativeTxDuration:'6 months for fusion; 6-12 weeks for decompression',imagingRequired:'MRI or CT correlating with symptoms',waiverConditions:'Progressive neurological deficit, cauda equina, myelopathy',portalUrl:'https://www.aetna.com/providers',priorAuthPhone:'1-800-238-6279',guidelineSource:'Aetna CPB 0743'},
+anthem:{name:'Anthem Blue Cross',policyNumber:'CG-SURG-71/72',conservativeTxDuration:'6-12 weeks',portalUrl:'https://www.anthem.com/providers',priorAuthPhone:'1-800-274-7130',guidelineSource:'Anthem CG-SURG-71/72'},
+bcbs:{name:'Blue Cross Blue Shield',policyNumber:'Medical Policy 7.01.130/131',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.bcbs.com',priorAuthPhone:'Varies by plan',guidelineSource:'BCBS Medical Policy 7.01.130/131'},
+blueshieldca:{name:'Blue Shield of California',policyNumber:'BSC Policy 7.01.131',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.blueshieldca.com/providers',priorAuthPhone:'1-800-541-6652',guidelineSource:'Blue Shield CA Policy 7.01.131'},
+centene:{name:'Centene / Ambetter',policyNumber:'State-specific Medicaid guidelines',conservativeTxDuration:'6+ weeks per state plan',portalUrl:'https://www.centene.com/providers',priorAuthPhone:'Varies by state plan',guidelineSource:'Centene/Ambetter state Medicaid guidelines'},
+cigna:{name:'Cigna / Evernorth',policyNumber:'Coverage Policy 0263',conservativeTxDuration:'3+ months conservative tx',portalUrl:'https://cignaforhcp.cigna.com',priorAuthPhone:'1-800-230-6138',guidelineSource:'Cigna Coverage Policy 0263'},
+coordinated_care:{name:'Coordinated Care (Evolent)',policyNumber:'CG-1766 (Lumbar) / CG-1759 (Cervical)',medicalNecessityDef:'Uses Evolent Clinical Guidelines (formerly NIA) and InterQual criteria. Centene subsidiary in WA State Medicaid.',conservativeTxRequired:['PT 6 weeks for decompression','PT 12 weeks for fusion','Epidural steroid injection','NSAID trial'],conservativeTxDuration:'6-12 weeks per Evolent CG-1766/CG-1759',imagingRequired:'MRI or CT demonstrating pathology',waiverConditions:'Progressive neurological deficit, cauda equina, acute fracture',spineSpecific:{lumbarFusion:{criteria:['Failed 12 weeks conservative care','MRI showing structural pathology','BMI<40 preferred','No active nicotine or cessation program','Psych screening recommended'],cptCodes:['22612','22630','22633','22840','22842','22853']},lumbarDecompression:{criteria:['Failed 6 weeks PT','MRI confirming neural compression','Radiculopathy or neurogenic claudication documented'],cptCodes:['63030','63047','63048']},cervicalFusion:{criteria:['Failed 6-12 weeks conservative care','MRI showing compression','Radiculopathy or myelopathy documented'],cptCodes:['22551','22552','22554']},discectomy:{criteria:['Failed 6 weeks conservative care','MRI confirming disc herniation','Radiculopathy documented'],cptCodes:['63030','63035']}},portalUrl:'https://www.coordinatedcarehealth.com/providers',priorAuthPhone:'1-877-644-4613',guidelineSource:'Evolent CG-1766/CG-1759; WA HCA Apple Health Standards',additionalNotes:'Peer-to-peer review available.'},
+firsthealth:{name:'First Health / Coventry',policyNumber:'Uses MCG/InterQual criteria',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.firsthealth.com',priorAuthPhone:'1-800-226-5116',guidelineSource:'MCG/InterQual criteria'},
+healthnet:{name:'Health Net',policyNumber:'Uses MCG/InterQual',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.healthnet.com/providers',priorAuthPhone:'1-800-641-7761',guidelineSource:'MCG/InterQual'},
+humana:{name:'Humana',policyNumber:'Policy SUR-020',conservativeTxDuration:'6-12 weeks',portalUrl:'https://www.humana.com/provider',priorAuthPhone:'1-800-523-0023',guidelineSource:'Humana Policy SUR-020'},
+kaiser:{name:'Kaiser Permanente',policyNumber:'Regional Clinical Guidelines',conservativeTxDuration:'3+ months',portalUrl:'https://providers.kaiserpermanente.org',priorAuthPhone:'Varies by region',guidelineSource:'Kaiser Regional Clinical Guidelines'},
+medicaid:{name:'Medicaid (State)',policyNumber:'State-specific; generally follows Medicare LCDs',conservativeTxDuration:'Varies by state; generally follows Medicare',portalUrl:'https://www.medicaid.gov',priorAuthPhone:'Varies by state',guidelineSource:'State Medicaid guidelines; Medicare LCD reference'},
+medicare:{name:'Medicare (CMS)',policyNumber:'LCD L33767/L33764, NCD 150.1',conservativeTxDuration:'3+ months',portalUrl:'https://www.cms.gov/medicare-coverage-database',priorAuthPhone:'1-800-MEDICARE',guidelineSource:'LCD L33767/L33764; NCD 150.1'},
+medicare_advantage:{name:'Medicare Advantage',policyNumber:'Varies by plan — follows underlying Medicare LCDs as minimum standard',medicalNecessityDef:'Medicare Advantage plans must cover all services covered by Original Medicare (Parts A & B) and follow Medicare LCD/NCD criteria as a baseline. Individual MA plans may impose additional prior authorization requirements beyond Medicare standards.',conservativeTxDuration:'3+ months per Medicare LCD baseline; individual MA plans may require additional duration',imagingRequired:'MRI or CT per Medicare LCD requirements; MA plans may require additional imaging criteria',waiverConditions:'Progressive neurological deficit, cauda equina syndrome, acute fracture — same as Medicare baseline',additionalNotes:'Always verify the specific MA plan prior authorization requirements in addition to Medicare LCD criteria. Contact the specific MA plan directly for their PA process.',portalUrl:'https://www.cms.gov/medicare/health-plans/medicareadvtgspecratestats',priorAuthPhone:'Varies by MA plan',guidelineSource:'Medicare LCDs as baseline; individual MA plan criteria'},
+molina:{name:'Molina Healthcare',policyNumber:'Clinical Policy MH-032',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.molinahealthcare.com/providers',priorAuthPhone:'1-888-562-5442',guidelineSource:'Molina Clinical Policy MH-032'},
+multiplan:{name:'MultiPlan / PHCS',policyNumber:'References underlying payer criteria',conservativeTxDuration:'Per underlying payer',portalUrl:'https://www.multiplan.com',priorAuthPhone:'1-800-950-7040',guidelineSource:'Underlying payer criteria'},
+oscar:{name:'Oscar Health',policyNumber:'Uses MCG criteria',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.hioscar.com/providers',priorAuthPhone:'1-855-672-2788',guidelineSource:'MCG criteria'},
+premera:{name:'Premera Blue Cross',policyNumber:'Medical Policy 7.01.131',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.premera.com/providers',priorAuthPhone:'1-800-722-1471',guidelineSource:'Premera Medical Policy 7.01.131'},
+regence:{name:'Regence Blue Shield',policyNumber:'Medical Policy 7.01.131',conservativeTxDuration:'6+ weeks',portalUrl:'https://www.regence.com/providers',priorAuthPhone:'1-888-367-2112',guidelineSource:'Regence Medical Policy 7.01.131'},
+tricare:{name:'TriCare / Military',policyNumber:'TRICARE Policy Manual Ch7 Sec16.1',conservativeTxDuration:'Follows Medicare LCD guidelines',portalUrl:'https://www.tricare.mil/providers',priorAuthPhone:'1-888-874-9378',guidelineSource:'TRICARE Policy Manual; Medicare LCD reference'},
+uhc:{name:'UnitedHealthcare (UHC / Optum)',policyNumber:'2023T0559U',conservativeTxDuration:'12 weeks',portalUrl:'https://www.uhcprovider.com',priorAuthPhone:'1-866-889-8054',guidelineSource:'UHC Policy 2023T0559U; InterQual'},
+wa_li:{name:'WA Labor & Industries (L&I)',policyNumber:'L&I Lumbar Spine Surgery Guideline / Cervical Radiculopathy & Myelopathy Guideline (WAC 296-20)',medicalNecessityDef:'Washington State L&I covers medical treatment necessary and proper for a work-related injury or occupational disease under RCW 51.36.010. Treatment must be (1) directly related to the accepted industrial injury or occupational disease, (2) provided by an L&I-enrolled provider, (3) consistent with L&I evidence-based treatment guidelines developed by IIMAC, and (4) reasonably required to cure or relieve effects of the injury. L&I uses its own surgical guidelines — NOT commercial insurance criteria.',conservativeTxRequired:['Minimum 6 weeks active PT/functional restoration for decompression','Minimum 12 weeks structured conservative care for fusion','Documented functional improvement with validated scales (ODI, VAS, SF-36)','NSAIDs and analgesic medication trial','Spinal injection trial where indicated','Opioid use screening and tapering plan','Behavioral/psychological screening required before fusion (PHQ-9)','Work rehabilitation/work hardening assessment','Active nicotine cessation required for fusion'],conservativeTxDuration:'6 weeks minimum for decompression; 12 weeks for fusion. Must document functional improvement with validated outcome measures.',imagingRequired:'MRI or CT demonstrating pathology directly correlated with accepted work injury. L&I Advanced Imaging Guidance checklists apply.',waiverConditions:'Progressive neurological deficit (motor weakness Grade 3/5 or worse), acute cauda equina syndrome, progressive myelopathy, acute fracture/dislocation',spineSpecific:{lumbarFusion:{criteria:['Accepted work-related condition established','Failed minimum 12 weeks conservative care with documented functional outcomes','MRI/CT showing spondylolisthesis (Grade I+ with instability), recurrent disc herniation, iatrogenic instability, or stenosis with instability','Psychological/behavioral screening completed — no untreated major barriers','Active nicotine cessation required','BMI documented — obesity counseling for BMI>40','Opioid use review and reduction plan','Work rehabilitation assessment completed','Single-level fusion preferred; multi-level requires exceptional justification'],cptCodes:['22612','22630','22633','22634','22840','22842','22853','22854']},lumbarDecompression:{criteria:['Accepted work-related condition established','Failed minimum 6 weeks conservative care (waived for progressive neurological deficit)','MRI/CT confirming neural compression consistent with clinical findings','Radiculopathy or neurogenic claudication clearly documented','Positive provocative exam (SLR, femoral stretch, neurological deficits)','Functional limitation documented (ODI ≥40% preferred)'],cptCodes:['63005','63012','63017','63030','63042','63047','63048','63056']},cervicalFusion:{criteria:['Accepted work-related cervical condition established','Failed 6-12 weeks conservative care for radiculopathy; progressive myelopathy may waive','MRI/CT showing disc herniation, stenosis, or instability causing cord/nerve compression','Radiculopathy or myelopathy on neurological exam','Concordant symptoms with imaging','Nicotine cessation for fusion'],cptCodes:['22548','22551','22552','22554','22585','22600','22614']},discectomy:{criteria:['Accepted work-related disc herniation','Failed 6 weeks conservative care (waived for progressive motor deficit)','MRI confirming disc herniation at symptomatic level','Radiculopathy on exam with concordant imaging','Functional impairment documented'],cptCodes:['63030','63035']}},portalUrl:'https://lni.wa.gov/medical-provider-resources/treatment-guidelines-and-resources',priorAuthPhone:'1-800-547-8367',guidelineSource:'L&I Lumbar Spine Surgery Guideline (IIMAC); L&I Cervical Radiculopathy & Myelopathy Guideline; WAC 296-20 Medical Aid Rules',additionalNotes:'L&I is Washington State workers compensation — only covers WORK-RELATED injuries. Requires L&I-enrolled providers. Prior authorization required for most surgical procedures — submit via Provider One portal. Self-insured employer (SIE) claims handled by employer or TPA. L&I claim number must be included on all authorization requests. Peer review and IMEs commonly used.'},
+wa_apple_health_chpw:{name:'Apple Health — Community Health Plan of WA (CHPW)',policyNumber:'WA HCA Apple Health Managed Care Contract / CHPW Medical Policies',medicalNecessityDef:'Services clinically appropriate, necessary to treat an illness or injury, in the least intensive setting, consistent with WA Apple Health (Medicaid) coverage standards per WA HCA. Uses MCG (Milliman Care Guidelines) for utilization review.',conservativeTxRequired:['PT minimum 6 weeks for decompression','PT minimum 12 weeks for fusion','NSAID/analgesic trial','Epidural steroid injection for radiculopathy','Activity modification','Functional limitation documented'],conservativeTxDuration:'6 weeks for decompression; 12 weeks for fusion',imagingRequired:'MRI of affected spine. CT if MRI contraindicated.',waiverConditions:'Progressive neurological deficit, cauda equina, myelopathy',portalUrl:'https://www.chpw.org/providers',priorAuthPhone:'1-800-440-1561',guidelineSource:'WA HCA Apple Health Coverage Standards; MCG (Milliman Care Guidelines); CHPW Medical Policies',additionalNotes:'CHPW is an Apple Health (WA Medicaid) managed care plan. Prior authorization required for most surgical procedures. Peer-to-peer review available. Interpreter services in 200+ languages.'},
+wa_apple_health_coordinated:{name:'Apple Health — Coordinated Care (WA Medicaid)',policyNumber:'WA HCA Apple Health Managed Care Contract / Evolent Clinical Guidelines',medicalNecessityDef:'Services medically necessary under WA Apple Health (Medicaid) standards per WA HCA. Coordinated Care uses Evolent (formerly NIA) Clinical Guidelines for musculoskeletal surgery review.',conservativeTxRequired:['PT 6 weeks minimum for decompression','PT 12 weeks minimum for fusion','Pharmacological management (NSAIDs, neuropathic agents)','Epidural steroid injection for radiculopathy','Functional limitation documentation'],conservativeTxDuration:'6-12 weeks per Evolent CG-1766/CG-1759 and WA Apple Health standards',imagingRequired:'MRI or CT demonstrating pathology correlating with clinical symptoms',waiverConditions:'Progressive neurological deficit, cauda equina, acute fracture',portalUrl:'https://www.coordinatedcarehealth.com/providers',priorAuthPhone:'1-877-644-4613',guidelineSource:'Evolent Clinical Guidelines CG-1766 (Lumbar) / CG-1759 (Cervical); WA HCA Apple Health Coverage Standards',additionalNotes:'Coordinated Care is a Centene subsidiary providing Apple Health (WA Medicaid) managed care. Uses Evolent for musculoskeletal surgery utilization review. WA legislative mandates may apply.'},
+wa_lifewise:{name:'LifeWise Health Plan of Washington',policyNumber:'LifeWise Medical Policies / Premera Blue Cross Affiliate',medicalNecessityDef:'Services medically necessary, clinically appropriate, not primarily for convenience, consistent with generally accepted standards of medical practice. LifeWise is an affiliate of Premera Blue Cross and uses Premera medical policies.',conservativeTxRequired:['Minimum 6 weeks PT for decompression','Minimum 12 weeks conservative care for fusion','NSAID and analgesic trial','Epidural steroid injection for radiculopathy','Documented functional limitation'],conservativeTxDuration:'6 weeks for decompression; 12 weeks for fusion',imagingRequired:'MRI of affected spine. CT if contraindicated.',waiverConditions:'Progressive neurological deficit, cauda equina, acute fracture/dislocation',portalUrl:'https://www.lifewisewa.com/providers',priorAuthPhone:'1-800-592-6804',guidelineSource:'Premera Blue Cross Medical Policy 7.01.131; LifeWise Medical Policies',additionalNotes:'LifeWise Health Plan of Washington is a Premera Blue Cross affiliate offering plans on WA Healthplanfinder exchange. Prior authorization required for spine surgery.'},
+wa_bridgespan:{name:'BridgeSpan Health Company',policyNumber:'BridgeSpan Medical Policies / Regence Affiliate',medicalNecessityDef:'Services clinically appropriate, medically necessary to treat a diagnosed condition, in the most appropriate and least intensive setting, consistent with accepted standards. BridgeSpan is affiliated with Regence BlueShield and uses Regence medical policies.',conservativeTxRequired:['Minimum 6 weeks PT for decompression','Minimum 12 weeks conservative care for fusion','NSAID and analgesic trial','Epidural steroid injection for radiculopathy','Functional limitation with outcome measures'],conservativeTxDuration:'6 weeks for decompression; 12 weeks for fusion',imagingRequired:'MRI of affected spine. CT if contraindicated.',waiverConditions:'Progressive neurological deficit, cauda equina, acute fracture/dislocation',portalUrl:'https://www.bridgespanhealth.com/providers',priorAuthPhone:'1-855-774-3432',guidelineSource:'Regence BlueShield Medical Policy 7.01.131; BridgeSpan Medical Policies',additionalNotes:'BridgeSpan Health offers plans on WA Healthplanfinder in select WA counties. Affiliated with Regence BlueShield (Cambia Health).'},
+wa_ump:{name:'WA Uniform Medical Plan (UMP / PEBB)',policyNumber:'UMP Certificate of Coverage / WA Health Care Authority PEBB Program',medicalNecessityDef:'Services are medically necessary when clinically appropriate, required to diagnose/treat illness, consistent with accepted standards, not primarily for convenience, and the most appropriate level of service that can be safely provided. Administered by WA State Health Care Authority for state and public school employees.',conservativeTxRequired:['Minimum 6 weeks PT for decompression','Minimum 12 weeks conservative care for fusion','Anti-inflammatory and analgesic trial','Epidural steroid injections for radiculopathy','Documented functional impairment'],conservativeTxDuration:'6 weeks for decompression; 12 weeks for fusion',imagingRequired:'MRI of affected spine. CT if contraindicated.',waiverConditions:'Progressive neurological deficit, cauda equina, myelopathy with rapid progression, acute fracture',portalUrl:'https://www.hca.wa.gov/employee-retiree-benefits/public-employees/ump-classic-and-ump-plus',priorAuthPhone:'1-888-849-3681',guidelineSource:'UMP Certificate of Coverage; WA Health Care Authority PEBB Program Guidelines',additionalNotes:'Uniform Medical Plan covers WA State employees, retired employees, and public school employees through PEBB. Administered by Regence BlueShield on behalf of WA HCA. UMP Classic and UMP Plus plans available.'},
+interqual:{name:'InterQual Criteria (MCG)',policyNumber:'InterQual Acute & Surgical Criteria',medicalNecessityDef:'InterQual (formerly McKesson) evidence-based clinical decision support criteria widely licensed by insurers for utilization management and prior authorization review. When an insurer is not listed above but uses InterQual criteria, select this option. InterQual Surgical Level of Care criteria define the clinical evidence required to support medical necessity for surgical procedures.',conservativeTxRequired:['Documented failure of conservative treatment appropriate to diagnosis','Physical therapy or structured rehabilitation program','Medication management including anti-inflammatories and analgesics','Diagnostic imaging correlating with clinical presentation','Functional limitation documented with validated outcome measures'],conservativeTxDuration:'Typically 6-12 weeks depending on procedure and diagnosis',imagingRequired:'MRI or CT demonstrating pathology concordant with clinical findings and symptoms',waiverConditions:'Progressive neurological deficit, cauda equina syndrome, acute fracture, myelopathy with rapid progression',portalUrl:'https://www.interqual.com',priorAuthPhone:'Contact your specific insurer — InterQual is a criteria system used by many payers',guidelineSource:'InterQual Acute & Surgical Level of Care Criteria',additionalNotes:'InterQual is a clinical decision support tool licensed by many insurers. The criteria are applied by the specific insurer. Always contact the insurer directly for their specific PA process and to confirm they use InterQual.'},
+milliman:{name:'Milliman Care Guidelines (MCG)',policyNumber:'MCG Surgical Indications & Ambulatory Care Guidelines',medicalNecessityDef:'Milliman Care Guidelines (MCG) are evidence-based clinical criteria developed by Milliman, Inc. and used by numerous health plans and utilization management organizations for prior authorization and medical necessity review. When an insurer uses MCG guidelines, select this option. MCG covers surgical procedures, care settings, and ambulatory procedures.',conservativeTxRequired:['Conservative treatment failure appropriate to the diagnosis','Structured physical therapy or functional restoration program','Pharmacological management including anti-inflammatory medications','Diagnostic imaging with clinical correlation','Documented functional impairment using standardized outcome measures'],conservativeTxDuration:'Generally 6-12 weeks depending on clinical indication and procedure type',imagingRequired:'MRI or CT scan demonstrating structural pathology concordant with clinical symptoms and findings',waiverConditions:'Emergent conditions, progressive neurological compromise, cauda equina syndrome, acute instability, myelopathy',portalUrl:'https://www.mcg.com',priorAuthPhone:'Contact your specific insurer — MCG is a criteria system used by many payers',guidelineSource:'Milliman Care Guidelines (MCG) Surgical Indications & Ambulatory Care Criteria',additionalNotes:'Milliman Care Guidelines are licensed by many health plans including Aetna, Anthem, BCBS plans, Humana, and others. The specific MCG criteria version and edition in use may vary by insurer. Confirm with the specific insurer which MCG edition applies.'}
+};
+
+var sampleNote="Patient presents with a 14-month history of progressive low back pain with bilateral leg pain, worse on the right, radiating to the right posterior thigh and lateral calf, consistent with L4-5 distribution radiculopathy. Onset following prolonged occupational exposure to heavy lifting.\n\nPAST TREATMENT: Patient has undergone 4 months of formal physical therapy (16 sessions, functional restoration protocol), two lumbar epidural steroid injections (L4-5 interlaminar, 6 weeks apart — temporary relief <4 weeks each), NSAID therapy (naproxen 500mg BID x 3 months — discontinued due to GI intolerance), gabapentin 300mg TID x 2 months — mild benefit, discontinued due to sedation.\n\nIMAGING: MRI Lumbar Spine (recent, 3 months ago): Grade I spondylolisthesis L4 on L5 with moderate-to-severe bilateral neural foraminal stenosis at L4-5. Central canal stenosis moderate at L4-5. Modic Type II endplate changes L4-5. L5-S1: mild disc desiccation without significant stenosis.\n\nEXAMINATION: Positive right SLR at 45 degrees. Right EHL weakness 4/5. Reduced sensation right lateral foot and dorsum. Antalgic gait. Lumbar flexion limited to 40 degrees due to pain.\n\nFUNCTIONAL STATUS: ODI: 58% (severe disability). VAS back pain: 7/10. VAS leg pain: 8/10. Unable to stand >20 minutes, walk >2 blocks, perform occupational duties.\n\nASSESSMENT: L4-5 spondylolisthesis with severe bilateral foraminal stenosis and right L5 radiculopathy. Failed conservative management x 4 months. Functional limitation is severe and progressive.\n\nPLAN: Recommend L4-5 decompression and instrumented posterolateral fusion. CPT codes: 63047, 22612, 22840, 22853. Patient understands risks/benefits. Nicotine-free x 6 months. BMI 27. No active psychiatric conditions.";
+
+function closeWelcome() {
+  var overlay = document.getElementById('welcome-overlay');
+  if (overlay) { overlay.style.display = 'none'; }
+}
+function openWelcome() {
+  var overlay = document.getElementById('welcome-overlay');
+  if (overlay) { overlay.style.display = 'flex'; }
+}
+
+function switchToModule(n){
+  var m1=document.getElementById('module-1');var m2=document.getElementById('module-2');
+  var t1=document.getElementById('tab-prior-auth');var t2=document.getElementById('tab-appeal');
+  if(n==='1'){m1.style.display='';m2.style.display='none';t1.style.cssText='background-color:#2563eb;color:#ffffff;font-weight:700;border:2px solid #2563eb;border-radius:8px;box-shadow:0 2px 8px rgba(37,99,235,0.4);padding:12px 28px;font-size:1rem;cursor:pointer;';t2.style.cssText='background-color:#f3f4f6;color:#6b7280;font-weight:500;border:2px solid #e5e7eb;border-radius:8px;box-shadow:none;padding:12px 28px;font-size:1rem;cursor:pointer;';}
+  else{m1.style.display='none';m2.style.display='';t2.style.cssText='background-color:#2563eb;color:#ffffff;font-weight:700;border:2px solid #2563eb;border-radius:8px;box-shadow:0 2px 8px rgba(37,99,235,0.4);padding:12px 28px;font-size:1rem;cursor:pointer;';t1.style.cssText='background-color:#f3f4f6;color:#6b7280;font-weight:500;border:2px solid #e5e7eb;border-radius:8px;box-shadow:none;padding:12px 28px;font-size:1rem;cursor:pointer;';}
+}
+function toggleInstructions(){var c=document.getElementById('instructions-content');var ch=document.getElementById('instructions-chevron');c.classList.toggle('open');ch.style.transform=c.classList.contains('open')?'rotate(0deg)':'rotate(180deg)';}
+function showToast(msg,duration){var d=duration||6000;var container=document.getElementById('toast-container');var toast=document.createElement('div');toast.style.cssText='background:#10b981;color:#fff;padding:14px 24px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-weight:600;font-size:0.95rem;pointer-events:auto;max-width:480px;text-align:center;line-height:1.5;';toast.innerHTML=msg;toast.classList.add('toast-enter');container.appendChild(toast);setTimeout(function(){toast.classList.add('toast-exit');setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast);},400);},d);}
+function copyToClipboard(text){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0;';document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,ta.value.length);var s=false;try{s=document.execCommand('copy');}catch(e){s=false;}document.body.removeChild(ta);return s;}
+function showHipaaModal(text){pendingCopyText=text;var m=document.getElementById('hipaa-modal');m.style.display='flex';m.style.alignItems='center';m.style.justifyContent='center';}
+function closeHipaaModal(){document.getElementById('hipaa-modal').style.display='none';pendingCopyText='';}
+function acknowledgeHipaaAndCopy(){var text=pendingCopyText;document.getElementById('hipaa-modal').style.display='none';pendingCopyText='';var s=copyToClipboard(text);if(s){showToast('✅ Prompt copied! <br><a href="https://copilot.microsoft.com" target="_blank" rel="noopener noreferrer" style="color:#fff;text-decoration:underline;font-weight:700;">🤖 Open Copilot Chat →</a>',6000);}else{window.prompt('Copy this prompt (Ctrl+A, Ctrl+C):',text);}}
+function handleMASubfield(selectEl,subFieldId,otherInputId){var sub=document.getElementById(subFieldId);var otherInput=document.getElementById(otherInputId);if(selectEl.value==='medicare_advantage'){sub.classList.add('visible');}else{sub.classList.remove('visible');}if(otherInput)otherInput.style.display='none';}
+function handleMAPlanChange(selectEl,otherInputId){var otherInput=document.getElementById(otherInputId);if(!otherInput)return;otherInput.style.display=selectEl.value==='Other (specify below)'?'block':'none';}
+function getMALabel(planSelectId,otherInputId){var planSel=document.getElementById(planSelectId);var otherInput=document.getElementById(otherInputId);if(!planSel)return'Medicare Advantage';if(planSel.value==='Other (specify below)'&&otherInput&&otherInput.value)return'Medicare Advantage — '+otherInput.value;if(planSel.value&&planSel.value!=='')return planSel.value;return'Medicare Advantage';}
+function resetForNextCase(){try{['pa-primary-insurer','pa-secondary-insurer','pa-specialty','pa-cpt-codes','pa-clinic-note','ap-primary-insurer','ap-secondary-insurer','ap-specialty','ap-cpt-codes','ap-clinic-note','ap-denial-category','ap-denial-letter'].forEach(function(id){var el=document.getElementById(id);if(el){el.tagName==='SELECT'?el.selectedIndex=0:el.value='';}});['pa-cpt-quickadd','ap-cpt-quickadd'].forEach(function(id){var el=document.getElementById(id);if(el)el.selectedIndex=0;});['m1-ma-subfield-primary','m1-ma-subfield-secondary','m2-ma-subfield-primary','m2-ma-subfield-secondary'].forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('visible');});['m1-ma-other-primary','m1-ma-other-secondary','m2-ma-other-primary','m2-ma-other-secondary'].forEach(function(id){var el=document.getElementById(id);if(el){el.value='';el.style.display='none';}});['m1-ma-plan-primary','m1-ma-plan-secondary','m2-ma-plan-primary','m2-ma-plan-secondary'].forEach(function(id){var el=document.getElementById(id);if(el)el.selectedIndex=0;});var paR=document.getElementById('pa-results');var apR=document.getElementById('ap-results');if(paR){paR.classList.add('hidden');paR.innerHTML='';}if(apR){apR.classList.add('hidden');apR.innerHTML='';}var paI=document.getElementById('pa-insurer-info');var apI=document.getElementById('ap-insurer-info');if(paI)paI.classList.add('hidden');if(apI)apI.classList.add('hidden');}catch(e){}switchToModule('1');window.scrollTo({top:0,behavior:'smooth'});}
+
+function showInsurerInfo(selectId,panelId){
+  var sel=document.getElementById(selectId);var panel=document.getElementById(panelId);
+  var key=sel.value;if(!key||key===''){panel.classList.add('hidden');panel.innerHTML='';return;}
+  var d=insurerData[key];if(!d){panel.classList.add('hidden');return;}
+  var html='<div style="background:#fffbf8;border-radius:12px;padding:20px;border:1px solid #dac6b7;">';
+  html+='<h4 style="font-weight:700;font-size:1.1rem;color:#1e40af;margin-bottom:12px;">'+d.name+' — Coverage Information</h4>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.88rem;">';
+  html+='<div><strong>Policy:</strong> '+d.policyNumber+'</div>';
+  html+='<div><strong>Phone:</strong> '+d.priorAuthPhone+'</div>';
+  if(d.medicalNecessityDef) html+='<div style="grid-column:span 2;"><strong>Medical Necessity Definition:</strong> '+d.medicalNecessityDef+'</div>';
+  if(d.conservativeTxDuration) html+='<div><strong>Conservative Tx Duration:</strong> '+d.conservativeTxDuration+'</div>';
+  if(d.imagingRequired) html+='<div><strong>Imaging Required:</strong> '+d.imagingRequired+'</div>';
+  if(d.waiverConditions) html+='<div style="grid-column:span 2;"><strong>Waiver Conditions:</strong> '+d.waiverConditions+'</div>';
+  if(d.conservativeTxRequired){html+='<div style="grid-column:span 2;"><strong>Conservative Treatment Required:</strong><ul style="margin:4px 0 0 18px;">';d.conservativeTxRequired.forEach(function(t){html+='<li>'+t+'</li>';});html+='</ul></div>';}
+  if(d.additionalNotes) html+='<div style="grid-column:span 2;background:#eff6ff;padding:8px 12px;border-radius:8px;"><strong>Note:</strong> '+d.additionalNotes+'</div>';
+  html+='<div><strong>Guideline Source:</strong> '+d.guidelineSource+'</div>';
+  html+='<div><a href="'+d.portalUrl+'" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;font-weight:600;">Provider Portal →</a></div>';
+  html+='</div></div>';
+  panel.innerHTML=html;panel.classList.remove('hidden');
+}
+
+function handleCPTQuickAdd(quickAddId,cptInputId){
+  var qa=document.getElementById(quickAddId);var ci=document.getElementById(cptInputId);
+  if(!qa.value)return;var code=qa.value;var cur=ci.value.trim();
+  ci.value=cur?(cur+', '+code):code;qa.selectedIndex=0;
+}
+
+function loadSampleNote(textareaId){document.getElementById(textareaId).value=sampleNote;}
+
+function getInsurerLabel(selectId,maPlanId,maOtherId){
+  var sel=document.getElementById(selectId);if(!sel||!sel.value)return'Not Selected';
+  if(sel.value==='medicare_advantage')return getMALabel(maPlanId,maOtherId);
+  var d=insurerData[sel.value];return d?d.name:sel.options[sel.selectedIndex].text;
+}
+
+function importFileToTextarea(inputEl, textareaId) {
+  var file = inputEl.files[0];
+  if (!file) return;
+  var ext = file.name.split('.').pop().toLowerCase();
+  var ta = document.getElementById(textareaId);
+  if (ext === 'txt') {
+    var reader = new FileReader();
+    reader.onload = function(e) { ta.value = e.target.result; showToast('✅ Text file imported successfully.',3000); };
+    reader.readAsText(file);
+  } else if (ext === 'pdf') {
+    var reader2 = new FileReader();
+    reader2.onload = function(e) {
+      var typedArray = new Uint8Array(e.target.result);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      pdfjsLib.getDocument(typedArray).promise.then(function(pdf) {
+        var textContent = '';
+        var pagePromises = [];
+        for (var i = 1; i <= pdf.numPages; i++) {
+          pagePromises.push(pdf.getPage(i).then(function(page) {
+            return page.getTextContent().then(function(tc) {
+              return tc.items.map(function(item){ return item.str; }).join(' ');
+            });
+          }));
+        }
+        Promise.all(pagePromises).then(function(pages) {
+          ta.value = pages.join('\n\n');
+          showToast('✅ PDF imported successfully — ' + pdf.numPages + ' page(s) extracted.',4000);
+        });
+      }).catch(function(err) { showToast('⚠️ Could not read PDF. Please try copy-pasting the text instead.',5000); });
+    };
+    reader2.readAsArrayBuffer(file);
+  } else {
+    showToast('⚠️ Only PDF and .txt files are supported.',4000);
+  }
+  inputEl.value = '';
+}
+
+function runAnalysis(module){
+  var prefix=module==='pa'?'pa':'ap';
+  var noteEl=document.getElementById(prefix+'-clinic-note');
+  var insurerEl=document.getElementById(prefix+'-primary-insurer');
+  var cptEl=document.getElementById(prefix+'-cpt-codes');
+  var resultsEl=document.getElementById(prefix+'-results');
+  if(!noteEl.value.trim()){showToast('⚠️ Please paste a clinic note before running analysis.',4000);return;}
+  if(!insurerEl.value){showToast('⚠️ Please select a primary insurer.',4000);return;}
+  var note=noteEl.value.toLowerCase();var key=insurerEl.value;var d=insurerData[key]||insurerData['aetna'];
+  var cptCodes=cptEl.value.trim();
+
+  var criteria=[
+    {label:'Conservative Treatment Documentation',keywords:['physical therapy','pt','conservative','nsaid','injection','epidural','medication','gabapentin','naproxen','analgesic'],weight:2},
+    {label:'Conservative Treatment Duration ('+( d.conservativeTxDuration||'6+ weeks')+')',keywords:['weeks','months','sessions','duration','failed'],weight:2},
+    {label:'Imaging Studies (MRI/CT)',keywords:['mri','ct scan','imaging','x-ray','radiograph','magnetic resonance'],weight:2},
+    {label:'Imaging Correlation with Symptoms',keywords:['stenosis','herniation','spondylolisthesis','compression','disc','foraminal','canal'],weight:1},
+    {label:'Neurological Examination Findings',keywords:['slr','straight leg','weakness','reflex','sensation','motor','neurological','ehl','deficit'],weight:1},
+    {label:'Functional Limitation Documentation',keywords:['odi','vas','functional','disability','unable','limitation','impairment','stand','walk','work'],weight:2},
+    {label:'Radiculopathy / Myelopathy Documentation',keywords:['radiculopathy','myelopathy','radiating','radicular','claudication'],weight:1},
+    {label:'Failed Conservative Treatment Statement',keywords:['failed','failure','refractory','inadequate','non-responsive','did not respond'],weight:2},
+    {label:'Surgical Plan with CPT Codes',keywords:['cpt','fusion','decompression','laminectomy','discectomy','instrumentation','recommend','plan'],weight:1},
+    {label:'BMI Documentation',keywords:['bmi','body mass','weight','obesity'],weight:1},
+    {label:'Nicotine / Smoking Status',keywords:['nicotine','smoking','tobacco','nicotine-free','non-smoker','cessation'],weight:1},
+    {label:'Psychological Screening',keywords:['psychiatric','psychological','depression','phq','behavioral','mental health'],weight:1}
+  ];
+  if(d.conservativeTxRequired){d.conservativeTxRequired.forEach(function(req){
+    criteria.push({label:'Insurer Requirement: '+req,keywords:req.toLowerCase().split(/\s+/).filter(function(w){return w.length>3;}),weight:1});
+  });}
+
+  var totalWeight=0;var metWeight=0;var results=[];
+  criteria.forEach(function(c){
+    totalWeight+=c.weight;var found=c.keywords.some(function(kw){return note.indexOf(kw)!==-1;});
+    if(found){metWeight+=c.weight;results.push({label:c.label,status:'met'});}
+    else{
+      var partial=c.keywords.some(function(kw){var parts=kw.split(' ');return parts.length>1&&parts.some(function(p){return note.indexOf(p)!==-1;});});
+      if(partial){metWeight+=c.weight*0.5;results.push({label:c.label,status:'partial'});}
+      else{results.push({label:c.label,status:'unmet'});}
+    }
+  });
+  var pct=Math.round((metWeight/totalWeight)*100);
+  var color=pct>=80?'#10b981':pct>=50?'#f59e0b':'#ef4444';
+  var circumference=2*Math.PI*54;var offset=circumference-(pct/100)*circumference;
+  var html='<div style="background:#fffbf8;border-radius:16px;padding:24px;border:1px solid #dac6b7;margin-top:16px;">';
+  html+='<h3 style="font-size:1.2rem;font-weight:700;color:#1e40af;margin-bottom:16px;">📊 '+(module==='pa'?'Prior Authorization':'Appeal')+' Analysis Results</h3>';
+  html+='<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:20px;">';
+  html+='<div style="position:relative;width:130px;height:130px;flex-shrink:0;">';
+  html+='<svg viewBox="0 0 120 120" width="130" height="130"><circle cx="60" cy="60" r="54" fill="none" stroke="#efeae7" stroke-width="10"/>';
+  html+='<circle cx="60" cy="60" r="54" fill="none" stroke="'+color+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+circumference+'" stroke-dashoffset="'+offset+'" transform="rotate(-90 60 60)" class="gauge-circle"/>';
+  html+='<text x="60" y="56" text-anchor="middle" font-size="28" font-weight="700" fill="'+color+'">'+pct+'%</text>';
+  html+='<text x="60" y="74" text-anchor="middle" font-size="10" fill="#746d68">Compliance</text></svg></div>';
+  html+='<div style="flex:1;min-width:200px;"><strong style="font-size:1rem;">'+d.name+'</strong><br>';
+  html+='<span style="font-size:0.85rem;color:#635c57;">Policy: '+d.policyNumber+'</span><br>';
+  html+='<span style="font-size:0.85rem;color:#635c57;">Guideline: '+d.guidelineSource+'</span></div></div>';
+  html+='<div style="margin-bottom:16px;">';
+  results.forEach(function(r){
+    var icon=r.status==='met'?'✅':r.status==='partial'?'⚠️':'❌';
+    var bg=r.status==='met'?'#f0fdf4':r.status==='partial'?'#fffbeb':'#fef2f2';
+    var tc=r.status==='met'?'#166534':r.status==='partial'?'#92400e':'#991b1b';
+    html+='<div style="background:'+bg+';border-radius:8px;padding:8px 14px;margin-bottom:6px;font-size:0.88rem;color:'+tc+';font-weight:500;">'+icon+' '+r.label+'</div>';
+  });
+  html+='</div>';
+  if(cptCodes){html+='<div style="background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:12px;"><strong style="color:#1e40af;">CPT Codes Submitted:</strong> '+cptCodes+'</div>';}
+  var unmetItems=results.filter(function(r){return r.status==='unmet';});
+  if(unmetItems.length>0){html+='<div style="background:#fef2f2;border-radius:10px;padding:14px;border-left:4px solid #dc2626;"><strong style="color:#991b1b;">📋 Recommendations — Address Before Submission:</strong><ul style="margin:8px 0 0 18px;color:#991b1b;font-size:0.88rem;">';
+    unmetItems.forEach(function(u){html+='<li>'+u.label+'</li>';});html+='</ul></div>';}
+  html+='</div>';
+  resultsEl.innerHTML=html;resultsEl.classList.remove('hidden');
+  resultsEl.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildPAPrompt(){
+  var insurer=getInsurerLabel('pa-primary-insurer','m1-ma-plan-primary','m1-ma-other-primary');
+  var secondary=getInsurerLabel('pa-secondary-insurer','m1-ma-plan-secondary','m1-ma-other-secondary');
+  var spec=document.getElementById('pa-specialty');var specVal=spec?spec.options[spec.selectedIndex].text:'';
+  var cpt=document.getElementById('pa-cpt-codes').value.trim();
+  var note=document.getElementById('pa-clinic-note').value.trim();
+  if(!note){showToast('⚠️ Please paste a clinic note first.',4000);return;}
+  var prompt='Medical Necessity and Prior Authorization Letter\nInsurer: '+insurer+', '+specVal+'\nSecondary Insurer: '+(secondary&&secondary!=='Not Selected'?secondary:'None')+'\nCPT Codes: '+(cpt||'Not specified')+'\n\nPlease generate a comprehensive, insurer-specific medical necessity letter for prior authorization based on the following clinic note. Cross-reference the specific coverage criteria, policy numbers, and required documentation for '+insurer+'. Include:\n- Insurer-specific policy references and criteria\n- Clinical evidence mapped point-by-point to coverage requirements\n- Conservative treatment history with durations vs. insurer requirements\n- Functional limitation documentation\n- Diagnostic imaging findings correlated to clinical presentation\n- CPT code justification for each requested procedure\n- Medical necessity justification\n- If secondary insurer applies, address their criteria as well\n\nFormatting: Write the letter in clear prose paragraphs and bulleted lists only. Do NOT use any table or grid format for matching criteria — present each criterion match as a clearly labeled paragraph or bullet point instead.\n\nCLINIC NOTE:\n'+note;
+  showHipaaModal(prompt);
+}
+
+function buildAppealPrompt(){
+  var insurer=getInsurerLabel('ap-primary-insurer','m2-ma-plan-primary','m2-ma-other-primary');
+  var secondary=getInsurerLabel('ap-secondary-insurer','m2-ma-plan-secondary','m2-ma-other-secondary');
+  var spec=document.getElementById('ap-specialty');var specVal=spec?spec.options[spec.selectedIndex].text:'';
+  var cpt=document.getElementById('ap-cpt-codes').value.trim();
+  var note=document.getElementById('ap-clinic-note').value.trim();
+  var denialCat=document.getElementById('ap-denial-category');var denialVal=denialCat?denialCat.options[denialCat.selectedIndex].text:'';
+  var denialLetter=document.getElementById('ap-denial-letter').value.trim();
+  if(!note){showToast('⚠️ Please paste a clinic note first.',4000);return;}
+  var prompt='Medical Necessity and Prior Authorization Letter — Appeal\nInsurer: '+insurer+', '+specVal+'\nSecondary Insurer: '+(secondary&&secondary!=='Not Selected'?secondary:'None')+'\nCPT Codes: '+(cpt||'Not specified')+'\nDenial Category: '+(denialVal||'Not specified')+'\n\nPlease generate a comprehensive, insurer-specific medical necessity appeal letter based on the following clinic note and denial letter. Cross-reference the specific coverage criteria, policy numbers, and required documentation for '+insurer+'. Include:\n- Point-by-point rebuttal of each denial reason\n- Insurer-specific policy references and criteria\n- Clinical evidence mapped to coverage requirements\n- Conservative treatment history with durations vs. insurer requirements\n- Functional limitation documentation\n- Diagnostic imaging findings correlated to clinical presentation\n- CPT code justification for each requested procedure\n- Medical necessity justification and appeal arguments\n- Relevant case law or regulatory references where applicable\n- If secondary insurer applies, address their criteria as well\n\nFormatting: Write the letter in clear prose paragraphs and bulleted lists only. Do NOT use any table or grid format for matching criteria — present each criterion match as a clearly labeled paragraph or bullet point instead.\n\nCLINIC NOTE:\n'+note+'\n\nDENIAL LETTER:\n'+(denialLetter||'Not provided');
+  showHipaaModal(prompt);
+}
+
+function toggleQuickRef(){var c=document.getElementById('quick-ref-content');var ch=document.getElementById('quick-ref-chevron');c.classList.toggle('open');ch.style.transform=c.classList.contains('open')?'rotate(0deg)':'rotate(180deg)';}
+
+function openCopilotChat(){window.open('https://copilot.microsoft.com','_blank','noopener,noreferrer');}
+</script>
+</head>
+<body data-id="0">
+<app-icon data-id="1" hidden data-icon="shield-check" data-palette="Blue"></app-icon>
+<app-disclaimer data-id="2" intent="medical"></app-disclaimer>
+
+<!-- Toast Container -->
+<div data-id="3" id="toast-container" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:8px;"></div>
+
+<!-- HIPAA Modal -->
+<div data-id="4" id="hipaa-modal" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);">
+<div data-id="5" style="background:#fff;border-radius:16px;max-width:620px;width:95%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;">
+<button data-id="6" id="hipaa-close-btn" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#746d68;">✕</button>
+<h2 data-id="7" style="font-size:1.4rem;font-weight:700;color:#dc2626;margin-bottom:16px;">⚠️ HIPAA Compliance Notice</h2>
+<div data-id="8" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px;margin-bottom:16px;">
+<p data-id="9" style="font-size:0.92rem;color:#991b1b;font-weight:600;line-height:1.6;">Before pasting this prompt into any AI platform, you MUST remove all Protected Health Information (PHI) including: patient name, date of birth, MRN, SSN, address, phone number, and any other identifying information. HIPAA violations carry severe penalties.</p>
+</div>
+<table data-id="10" style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:0.85rem;">
+<thead data-id="11"><tr data-id="12" style="background:#f3f4f6;"><th data-id="13" style="padding:10px;text-align:left;border:1px solid #e5e7eb;">Platform</th><th data-id="14" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">Free Tier</th><th data-id="15" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">Enterprise</th></tr></thead>
+<tbody data-id="16">
+<tr data-id="17"><td data-id="18" style="padding:10px;border:1px solid #e5e7eb;font-weight:600;">Microsoft Copilot</td><td data-id="19" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">❌ Not HIPAA compliant</td><td data-id="20" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">✅ with BAA</td></tr>
+<tr data-id="21"><td data-id="22" style="padding:10px;border:1px solid #e5e7eb;font-weight:600;">ChatGPT</td><td data-id="23" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">❌ Not HIPAA compliant</td><td data-id="24" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">✅ with BAA</td></tr>
+<tr data-id="25"><td data-id="26" style="padding:10px;border:1px solid #e5e7eb;font-weight:600;">Claude</td><td data-id="27" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">❌ Not HIPAA compliant</td><td data-id="28" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">✅ with BAA</td></tr>
+<tr data-id="29"><td data-id="30" style="padding:10px;border:1px solid #e5e7eb;font-weight:600;">Gemini</td><td data-id="31" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">❌ Not HIPAA compliant</td><td data-id="32" style="padding:10px;text-align:center;border:1px solid #e5e7eb;">✅ with BAA</td></tr>
+</tbody></table>
+<div data-id="33" style="background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:20px;">
+<p data-id="34" style="font-size:0.88rem;color:#1e40af;font-weight:500;line-height:1.5;">ℹ️ A Business Associate Agreement (BAA) is required for HIPAA-compliant use of any AI platform with patient data. Verify your organization has an active BAA before using any platform with PHI.</p>
+</div>
+<div data-id="35" style="display:flex;gap:12px;flex-wrap:wrap;">
+<button data-id="36" id="hipaa-acknowledge-btn" style="flex:1;min-width:200px;background:#10b981;color:#fff;border:none;padding:14px 24px;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;">✅ I Understand — Copy Prompt</button>
+<button data-id="37" id="hipaa-cancel-btn" style="background:#e5e7eb;color:#4b5563;border:none;padding:14px 24px;border-radius:10px;font-weight:600;font-size:0.95rem;cursor:pointer;">Cancel</button>
+</div>
+</div>
+</div>
+
+<!-- Welcome Overlay -->
+<div data-id="38" id="welcome-overlay" style="display:flex;align-items:center;justify-content:center;position:fixed;top:0;left:0;width:100%;height:100%;z-index:10000;background:rgba(0,0,0,0.6);" class="welcome-anim">
+<div data-id="39" style="background:#fff;border-radius:16px;max-width:800px;width:95%;max-height:90vh;overflow-y:auto;padding:40px;position:relative;">
+<button data-id="40" id="welcome-close-x-btn" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#746d68;">✕</button>
+<h1 data-id="41" style="font-size:2rem;font-weight:700;color:#1e40af;margin-bottom:4px;">NecessityIQ</h1>
+<p data-id="42" style="font-size:0.95rem;color:#635c57;margin-bottom:12px;">AMMC Medical Necessity Platform — Quick Reference Guide</p>
+<hr data-id="43" style="border:none;border-top:3px solid #2563eb;margin-bottom:20px;">
+<div data-id="44" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:12px;padding:18px;margin-bottom:20px;">
+<p data-id="45" style="font-size:0.95rem;color:#1e40af;font-weight:500;line-height:1.6;">🛡️ NecessityIQ helps reduce prior authorization denials and reverse unfavorable decisions for indicated and medically reasonable treatment requests. This tool combines clinical gap analysis with AI-powered letter generation to ensure your documentation meets insurer-specific coverage criteria.</p>
+</div>
+<h3 data-id="46" style="font-size:1.1rem;font-weight:700;color:#272320;margin-bottom:12px;">How It Works</h3>
+<div data-id="47" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+<div data-id="48" style="background:#f0f9ff;border-radius:12px;padding:16px;"><h4 data-id="49" style="color:#2563eb;font-weight:700;margin-bottom:10px;">Prior Authorization</h4><ol data-id="50" style="font-size:0.85rem;line-height:1.8;padding-left:18px;color:#272320;">
+<li data-id="51">Select primary & secondary insurers</li><li data-id="52">Choose your specialty</li><li data-id="53">Enter CPT codes</li><li data-id="54">Paste your clinic note</li><li data-id="55">Run NecessityIQ Analysis</li><li data-id="56">Copy prompt → paste into any AI platform</li></ol></div>
+<div data-id="57" style="background:#fef2f2;border-radius:12px;padding:16px;"><h4 data-id="58" style="color:#dc2626;font-weight:700;margin-bottom:10px;">Appeals</h4><ol data-id="59" style="font-size:0.85rem;line-height:1.8;padding-left:18px;color:#272320;">
+<li data-id="60">Complete steps 1-4 from Prior Auth</li><li data-id="61">Select denial category</li><li data-id="62">Paste denial letter</li><li data-id="63">Copy appeal prompt → paste into any AI platform</li></ol></div>
+</div>
+<h3 data-id="64" style="font-size:1.1rem;font-weight:700;color:#272320;margin-bottom:12px;">Key Features</h3>
+<div data-id="65" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+<div data-id="66" style="background:#f8f4f1;border-radius:10px;padding:14px;text-align:center;"><span data-id="67" style="font-size:1.3rem;">📊</span><br data-id="68"><strong data-id="69" style="font-size:0.88rem;">Gap Analysis</strong><br data-id="70"><span data-id="71" style="font-size:0.8rem;color:#635c57;">Clinical documentation review</span></div>
+<div data-id="72" style="background:#f8f4f1;border-radius:10px;padding:14px;text-align:center;"><span data-id="73" style="font-size:1.3rem;">🤖</span><br data-id="74"><strong data-id="75" style="font-size:0.88rem;">AI-Powered Letters</strong><br data-id="76"><span data-id="77" style="font-size:0.8rem;color:#635c57;">Formatted prompts for any AI</span></div>
+<div data-id="78" style="background:#f8f4f1;border-radius:10px;padding:14px;text-align:center;"><span data-id="79" style="font-size:1.3rem;">🏥</span><br data-id="80"><strong data-id="81" style="font-size:0.88rem;">20+ Insurers</strong><br data-id="82"><span data-id="83" style="font-size:0.8rem;color:#635c57;">Insurer-specific criteria</span></div>
+<div data-id="84" style="background:#f8f4f1;border-radius:10px;padding:14px;text-align:center;"><span data-id="85" style="font-size:1.3rem;">🔧</span><br data-id="86"><strong data-id="87" style="font-size:0.88rem;">CPT Code Support</strong><br data-id="88"><span data-id="89" style="font-size:0.8rem;color:#635c57;">Quick-add common codes</span></div>
+</div>
+<h3 data-id="90" style="font-size:1.1rem;font-weight:700;color:#272320;margin-bottom:12px;">The AI Letter Workflow</h3>
+<div data-id="91" style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+<div data-id="92" style="background:#dbeafe;border-radius:10px;padding:12px 18px;text-align:center;font-weight:600;font-size:0.88rem;color:#1e40af;">📱 NecessityIQ App</div>
+<span data-id="93" style="font-size:1.2rem;color:#b3ada8;">→</span>
+<div data-id="94" style="background:#f3e8ff;border-radius:10px;padding:12px 18px;text-align:center;font-weight:600;font-size:0.88rem;color:#7c3aed;">💬 Any AI Platform<br data-id="95"><span data-id="96" style="font-size:0.75rem;font-weight:400;">(Copilot, ChatGPT, Claude, Gemini)</span></div>
+<span data-id="97" style="font-size:1.2rem;color:#b3ada8;">→</span>
+<div data-id="98" style="background:#d1fae5;border-radius:10px;padding:12px 18px;text-align:center;font-weight:600;font-size:0.88rem;color:#065f46;">📄 Your Letter</div>
+</div>
+<p data-id="99" style="font-size:0.85rem;color:#635c57;text-align:center;margin-bottom:16px;">💡 NecessityIQ generates formatted text prompts — it does not send data to any server or AI service. You choose where to paste your prompt.</p>
+<p data-id="100" style="font-size:0.82rem;color:#98918b;text-align:center;margin-bottom:20px;">Supported specialties: Spine Surgery, Orthopedic Surgery, Neurosurgery, Pain Management, General Surgery, Interventional Radiology, Cardiology, Oncology</p>
+<div data-id="101" style="text-align:center;margin-bottom:12px;">
+<p data-id="102" style="font-size:0.82rem;color:#746d68;">NecessityIQ — AMMC, 2026, v. 2.0 | For clinical decision support only</p>
+<p data-id="103" style="font-size:0.8rem;color:#98918b;">Questions? Contact your AMMC administrator</p>
+</div>
+<div data-id="104" style="text-align:center;">
+<button data-id="105" id="welcome-got-it-btn" style="background:#2563eb;color:#fff;border:none;padding:14px 36px;border-radius:10px;font-weight:700;font-size:1rem;cursor:pointer;">✅ Got It — Start Using NecessityIQ</button>
+</div>
+</div>
+</div>
+
+<!-- Header -->
+<header data-id="106" style="background:#0f172a;color:#fff;padding:16px 24px;">
+<div data-id="107" style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+<div data-id="108" style="display:flex;align-items:center;gap:12px;">
+<i data-id="109" data-lucide="shield-check" class="w-8 h-8" style="color:#60a5fa;"></i>
+<div data-id="110">
+<h1 data-id="111" style="font-size:1.5rem;font-weight:700;margin:0;">NecessityIQ</h1>
+<p data-id="112" style="font-size:0.82rem;color:#94a3b8;margin:0;">Medical Necessity Platform</p>
+</div>
+</div>
+<span data-id="113" style="font-size:0.85rem;color:#94a3b8;font-weight:500;">AMMC, 2026, v. 2.0</span>
+</div>
+</header>
+
+<main data-id="114" style="max-width:1200px;margin:0 auto;padding:20px 16px;">
+
+<!-- Value Statement Banner -->
+<div data-id="115" style="background:linear-gradient(135deg,#1e40af,#2563eb);border-radius:10px;padding:18px 24px;margin-bottom:20px;color:#fff;">
+<p data-id="116" style="font-size:0.95rem;font-weight:600;line-height:1.6;margin:0;">🛡️ NecessityIQ helps reduce prior authorization denials and reverse unfavorable decisions for indicated and medically reasonable treatment requests.</p>
+</div>
+
+<!-- How to Use Instructions (Collapsible, starts expanded) -->
+<div data-id="117" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;margin-bottom:20px;overflow:hidden;">
+<button data-id="118" id="instructions-toggle-btn" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:none;border:none;cursor:pointer;font-size:1rem;font-weight:700;color:#272320;">
+<span data-id="119">📖 How to Use NecessityIQ</span>
+<span data-id="120" id="instructions-chevron" style="transition:transform 0.3s;transform:rotate(0deg);font-size:1.2rem;">▾</span>
+</button>
+<div data-id="121" id="instructions-content" class="instructions-content open" style="padding:0 20px 20px;">
+<div data-id="122" style="background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:16px;">
+<p data-id="123" style="font-size:0.88rem;color:#1e40af;font-weight:500;line-height:1.6;">🖥️ <strong data-id="124">Multi-Platform:</strong> NecessityIQ output is formatted text that can be pasted into ANY AI platform — including Microsoft Copilot Chat, ChatGPT, Claude, Google Gemini, or any other AI assistant. After clicking "Copy Prompt for AI Letter," simply open your preferred AI platform and paste (Ctrl+V) the prompt.</p>
+</div>
+<h4 data-id="125" style="font-weight:700;margin-bottom:12px;color:#1e40af;">Prior Authorization Steps</h4>
+<div data-id="126" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+<div data-id="127" style="display:flex;align-items:center;gap:10px;"><span data-id="128" class="step-number">1</span><span data-id="129" style="font-size:0.88rem;">Select primary and secondary insurers</span></div>
+<div data-id="130" style="display:flex;align-items:center;gap:10px;"><span data-id="131" class="step-number">2</span><span data-id="132" style="font-size:0.88rem;">Choose your specialty</span></div>
+<div data-id="133" style="display:flex;align-items:center;gap:10px;"><span data-id="134" class="step-number">3</span><span data-id="135" style="font-size:0.88rem;">Enter CPT codes (manual or quick-add)</span></div>
+<div data-id="136" style="display:flex;align-items:center;gap:10px;"><span data-id="137" class="step-number">4</span><span data-id="138" style="font-size:0.88rem;">Paste clinic note (remove PHI first)</span></div>
+<div data-id="139" style="display:flex;align-items:center;gap:10px;"><span data-id="140" class="step-number">5</span><span data-id="141" style="font-size:0.88rem;">Run NecessityIQ Analysis for gap detection</span></div>
+<div data-id="142" style="display:flex;align-items:center;gap:10px;"><span data-id="143" class="step-number">6</span><span data-id="144" style="font-size:0.88rem;">Copy prompt → paste into any AI platform for letter generation</span></div>
+</div>
+<hr data-id="145" style="border:none;border-top:1px solid #efeae7;margin:16px 0;">
+<h4 data-id="146" style="font-weight:700;margin-bottom:12px;color:#dc2626;">Appeal Steps</h4>
+<div data-id="147" style="display:flex;flex-direction:column;gap:8px;">
+<div data-id="148" style="display:flex;align-items:center;gap:10px;"><span data-id="149" class="step-number" style="background:#dc2626;">1</span><span data-id="150" style="font-size:0.88rem;">Complete steps 1-4 from Prior Authorization above</span></div>
+<div data-id="151" style="display:flex;align-items:center;gap:10px;"><span data-id="152" class="step-number" style="background:#dc2626;">2</span><span data-id="153" style="font-size:0.88rem;">Select the denial category</span></div>
+<div data-id="154" style="display:flex;align-items:center;gap:10px;"><span data-id="155" class="step-number" style="background:#dc2626;">3</span><span data-id="156" style="font-size:0.88rem;">Paste the denial letter content</span></div>
+<div data-id="157" style="display:flex;align-items:center;gap:10px;"><span data-id="158" class="step-number" style="background:#dc2626;">4</span><span data-id="159" style="font-size:0.88rem;">Copy appeal prompt → paste into any AI platform</span></div>
+</div>
+</div>
+</div>
+
+<!-- Module Tabs -->
+<div data-id="160" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+<button data-id="161" id="tab-prior-auth" style="background-color:#2563eb;color:#ffffff;font-weight:700;border:2px solid #2563eb;border-radius:8px;box-shadow:0 2px 8px rgba(37,99,235,0.4);padding:12px 28px;font-size:1rem;cursor:pointer;">Prior Authorization</button>
+<button data-id="162" id="tab-appeal" style="background-color:#f3f4f6;color:#6b7280;font-weight:500;border:2px solid #e5e7eb;border-radius:8px;box-shadow:none;padding:12px 28px;font-size:1rem;cursor:pointer;">Appeal Generator</button>
+</div>
+
+<!-- ===== MODULE 1: PRIOR AUTHORIZATION ===== -->
+<div data-id="163" id="module-1">
+
+<!-- Insurance Information -->
+<div data-id="164" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<h3 data-id="165" style="font-size:1.1rem;font-weight:700;color:#272320;margin-bottom:16px;"><i data-id="166" data-lucide="building-2" class="w-5 h-5" style="display:inline;vertical-align:middle;margin-right:6px;color:#2563eb;"></i>Insurance Information</h3>
+
+<div data-id="167" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+<!-- Primary Insurer -->
+<div data-id="168">
+<label data-id="169" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;">Primary Insurer *</label>
+<select data-id="170" id="pa-primary-insurer" style="width:100%;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;background:#fff;">
+<option data-id="171" value="">— Select Primary Insurer —</option>
+<optgroup data-id="172" label="─── Clinical Criteria Standards ───">
+<option data-id="173" value="interqual">InterQual Criteria (MCG)</option>
+<option data-id="174" value="milliman">Milliman Care Guidelines (MCG)</option>
+</optgroup>
+<optgroup data-id="175" label="─── Washington State ───">
+<option data-id="176" value="wa_li">WA Labor &amp; Industries (L&amp;I)</option>
+<option data-id="177" value="wa_apple_health_chpw">Apple Health — Community Health Plan of WA (CHPW)</option>
+<option data-id="178" value="wa_apple_health_coordinated">Apple Health — Coordinated Care (WA Medicaid)</option>
+<option data-id="179" value="wa_lifewise">LifeWise Health Plan of Washington</option>
+<option data-id="180" value="wa_bridgespan">BridgeSpan Health Company</option>
+<option data-id="181" value="wa_ump">WA Uniform Medical Plan (UMP / PEBB)</option>
+</optgroup>
+<optgroup data-id="182" label="─── All Other Insurers ───">
+<option data-id="183" value="aetna">Aetna</option>
+<option data-id="184" value="anthem">Anthem Blue Cross</option>
+<option data-id="185" value="bcbs">Blue Cross Blue Shield</option>
+<option data-id="186" value="blueshieldca">Blue Shield of California</option>
+<option data-id="187" value="centene">Centene / Ambetter</option>
+<option data-id="188" value="cigna">Cigna / Evernorth</option>
+<option data-id="189" value="coordinated_care">Coordinated Care (Evolent)</option>
+<option data-id="190" value="firsthealth">First Health / Coventry</option>
+<option data-id="191" value="healthnet">Health Net</option>
+<option data-id="192" value="humana">Humana</option>
+<option data-id="193" value="kaiser">Kaiser Permanente</option>
+<option data-id="194" value="medicaid">Medicaid (State)</option>
+<option data-id="195" value="medicare">Medicare (CMS)</option>
+<option data-id="196" value="medicare_advantage">Medicare Advantage</option>
+<option data-id="197" value="molina">Molina Healthcare</option>
+<option data-id="198" value="multiplan">MultiPlan / PHCS</option>
+<option data-id="199" value="oscar">Oscar Health</option>
+<option data-id="200" value="premera">Premera Blue Cross</option>
+<option data-id="201" value="regence">Regence Blue Shield</option>
+<option data-id="202" value="tricare">TriCare / Military</option>
+<option data-id="203" value="uhc">UnitedHealthcare (UHC / Optum)</option>
+</optgroup>
+</select>
+<div data-id="204" id="m1-ma-subfield-primary" class="ma-subfield" style="margin-top:8px;">
+<label data-id="205" style="font-size:0.82rem;font-weight:600;color:#4c4642;display:block;margin-bottom:4px;">Medicare Advantage Plan</label>
+<select data-id="206" id="m1-ma-plan-primary" style="width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;background:#fff;">
+<option data-id="207" value="">— Select MA Plan —</option>
+<option data-id="208">Aetna Medicare Advantage</option><option data-id="209">Anthem Medicare Advantage</option><option data-id="210">Blue Cross Blue Shield Medicare Advantage</option><option data-id="211">Cigna Medicare Advantage</option><option data-id="212">Devoted Health</option><option data-id="213">Humana Medicare Advantage</option><option data-id="214">Kaiser Medicare Advantage</option><option data-id="215">Premera Medicare Advantage</option><option data-id="216">Regence Medicare Advantage</option><option data-id="217">UnitedHealthcare Medicare Advantage (AARP)</option><option data-id="218">WellCare Medicare Advantage</option><option data-id="219">Other (specify below)</option>
+</select>
+<input data-id="220" type="text" id="m1-ma-other-primary" placeholder="Enter MA plan name..." style="display:none;width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;margin-top:6px;">
+</div>
+</div>
+<!-- Secondary Insurer -->
+<div data-id="221">
+<label data-id="222" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;">Secondary Insurer</label>
+<select data-id="223" id="pa-secondary-insurer" style="width:100%;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;background:#fff;">
+<option data-id="224" value="">None / N/A</option>
+<optgroup data-id="225" label="─── Clinical Criteria Standards ───">
+<option data-id="226" value="interqual">InterQual Criteria (MCG)</option>
+<option data-id="227" value="milliman">Milliman Care Guidelines (MCG)</option>
+</optgroup>
+<optgroup data-id="228" label="─── Washington State ───">
+<option data-id="229" value="wa_li">WA Labor &amp; Industries (L&amp;I)</option>
+<option data-id="230" value="wa_apple_health_chpw">Apple Health — Community Health Plan of WA (CHPW)</option>
+<option data-id="231" value="wa_apple_health_coordinated">Apple Health — Coordinated Care (WA Medicaid)</option>
+<option data-id="232" value="wa_lifewise">LifeWise Health Plan of Washington</option>
+<option data-id="233" value="wa_bridgespan">BridgeSpan Health Company</option>
+<option data-id="234" value="wa_ump">WA Uniform Medical Plan (UMP / PEBB)</option>
+</optgroup>
+<optgroup data-id="235" label="─── All Other Insurers ───">
+<option data-id="236" value="aetna">Aetna</option><option data-id="237" value="anthem">Anthem Blue Cross</option><option data-id="238" value="bcbs">Blue Cross Blue Shield</option><option data-id="239" value="blueshieldca">Blue Shield of California</option><option data-id="240" value="centene">Centene / Ambetter</option><option data-id="241" value="cigna">Cigna / Evernorth</option><option data-id="242" value="coordinated_care">Coordinated Care (Evolent)</option><option data-id="243" value="firsthealth">First Health / Coventry</option><option data-id="244" value="healthnet">Health Net</option><option data-id="245" value="humana">Humana</option><option data-id="246" value="kaiser">Kaiser Permanente</option><option data-id="247" value="medicaid">Medicaid (State)</option><option data-id="248" value="medicare">Medicare (CMS)</option><option data-id="249" value="medicare_advantage">Medicare Advantage</option><option data-id="250" value="molina">Molina Healthcare</option><option data-id="251" value="multiplan">MultiPlan / PHCS</option><option data-id="252" value="oscar">Oscar Health</option><option data-id="253" value="premera">Premera Blue Cross</option><option data-id="254" value="regence">Regence Blue Shield</option><option data-id="255" value="tricare">TriCare / Military</option><option data-id="256" value="uhc">UnitedHealthcare (UHC / Optum)</option>
+</optgroup>
+</select>
+<div data-id="257" id="m1-ma-subfield-secondary" class="ma-subfield" style="margin-top:8px;">
+<label data-id="258" style="font-size:0.82rem;font-weight:600;color:#4c4642;display:block;margin-bottom:4px;">Medicare Advantage Plan</label>
+<select data-id="259" id="m1-ma-plan-secondary" style="width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;background:#fff;">
+<option data-id="260" value="">— Select MA Plan —</option>
+<option data-id="261">Aetna Medicare Advantage</option><option data-id="262">Anthem Medicare Advantage</option><option data-id="263">Blue Cross Blue Shield Medicare Advantage</option><option data-id="264">Cigna Medicare Advantage</option><option data-id="265">Devoted Health</option><option data-id="266">Humana Medicare Advantage</option><option data-id="267">Kaiser Medicare Advantage</option><option data-id="268">Premera Medicare Advantage</option><option data-id="269">Regence Medicare Advantage</option><option data-id="270">UnitedHealthcare Medicare Advantage (AARP)</option><option data-id="271">WellCare Medicare Advantage</option><option data-id="272">Other (specify below)</option>
+</select>
+<input data-id="273" type="text" id="m1-ma-other-secondary" placeholder="Enter MA plan name..." style="display:none;width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;margin-top:6px;">
+</div>
+</div>
+</div>
+</div>
+
+<!-- Insurer Info Panel -->
+<div data-id="274" id="pa-insurer-info" class="hidden" style="margin-bottom:16px;"></div>
+
+<!-- Specialty -->
+<div data-id="275" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<label data-id="276" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;"><i data-id="277" data-lucide="stethoscope" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:4px;color:#2563eb;"></i>Specialty</label>
+<select data-id="278" id="pa-specialty" style="width:100%;max-width:400px;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;background:#fff;">
+<option data-id="279" value="">— Select Specialty —</option>
+<option data-id="280">Spine Surgery</option><option data-id="281">Orthopedic Surgery</option><option data-id="282">Neurosurgery</option><option data-id="283">Pain Management</option><option data-id="284">General Surgery</option><option data-id="285">Interventional Radiology</option><option data-id="286">Cardiology</option><option data-id="287">Oncology</option>
+</select>
+</div>
+
+<!-- CPT Codes -->
+<div data-id="288" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<label data-id="289" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;"><i data-id="290" data-lucide="hash" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:4px;color:#2563eb;"></i>CPT Codes</label>
+<div data-id="291" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+<select data-id="292" id="pa-cpt-quickadd" style="flex:1;min-width:240px;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;background:#fff;">
+<option data-id="293" value="">⚡ Quick-Add CPT Code</option>
+<option data-id="294" value="22551">22551 - Cervical Fusion (ACDF)</option>
+<option data-id="295" value="22552">22552 - Cervical Fusion Additional Level</option>
+<option data-id="296" value="22612">22612 - Lumbar Posterolateral Fusion</option>
+<option data-id="297" value="22630">22630 - Lumbar Posterior Interbody Fusion (PLIF)</option>
+<option data-id="298" value="22633">22633 - Lumbar Combined Fusion (TLIF)</option>
+<option data-id="299" value="22634">22634 - Lumbar Fusion Additional Level</option>
+<option data-id="300" value="22840">22840 - Posterior Instrumentation</option>
+<option data-id="301" value="22842">22842 - Segmental Instrumentation</option>
+<option data-id="302" value="22853">22853 - Interbody Device/Cage</option>
+<option data-id="303" value="63005">63005 - Lumbar Laminectomy</option>
+<option data-id="304" value="63030">63030 - Lumbar Discectomy</option>
+<option data-id="305" value="63042">63042 - Lumbar Re-exploration</option>
+<option data-id="306" value="63047">63047 - Lumbar Decompression Single</option>
+<option data-id="307" value="63048">63048 - Lumbar Decompression Additional</option>
+<option data-id="308" value="22856">22856 - Cervical Disc Replacement</option>
+</select>
+</div>
+<input data-id="309" type="text" id="pa-cpt-codes" placeholder="Enter CPT codes (comma-separated) or use Quick-Add above" style="width:100%;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;">
+</div>
+
+<!-- Clinical Documentation -->
+<div data-id="310" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<label data-id="311" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;"><i data-id="312" data-lucide="file-text" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:4px;color:#2563eb;"></i>Clinical Documentation / Clinic Note</label>
+<div data-id="313" class="phi-warning">🔒 For absolute HIPAA security, remove all PHI (patient name, DOB, MRN, SSN, address, phone) from notes before pasting.</div>
+<textarea data-id="314" id="pa-clinic-note" rows="10" placeholder="Paste de-identified clinic note here..." style="width:100%;padding:12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;line-height:1.6;"></textarea>
+<button data-id="315" id="pa-load-sample-btn" style="margin-top:8px;background:#efeae7;color:#4c4642;border:none;padding:8px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">📋 Load Sample Note</button>
+<label data-id="316" id="pa-import-file-label" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-left:8px;background:#efeae7;color:#4c4642;border:none;padding:8px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+  📂 Import PDF or TXT
+  <input data-id="317" type="file" accept=".pdf,.txt" id="pa-import-file" style="display:none;">
+</label>
+</div>
+
+<!-- Action Buttons -->
+<div data-id="318" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
+<button data-id="319" id="pa-run-analysis-btn" style="background:#2563eb;color:#fff;border:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;">▶️ Run NecessityIQ Analysis</button>
+<div data-id="320">
+<button data-id="321" id="pa-copy-prompt-btn" style="background:#7c3aed;color:#fff;border:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;">🤖 Copy Prompt for AI Letter</button>
+<p data-id="322" style="font-size:0.78rem;color:#746d68;font-style:italic;margin-top:4px;">Copies a formatted prompt → paste into any AI platform for an AI-powered letter</p>
+</div>
+<button data-id="323" id="pa-open-copilot-btn" class="open-copilot-btn">🤖 Open Copilot Chat</button>
+</div>
+
+<!-- Results -->
+<div data-id="324" id="pa-results" class="hidden" style="margin-bottom:16px;"></div>
+
+<!-- Analyze Next Case -->
+<div data-id="325" style="text-align:center;margin-bottom:24px;">
+<button data-id="326" id="pa-next-case-btn" class="next-case-btn" style="width:100%;max-width:400px;">🔄 Analyze Next Case</button>
+</div>
+</div>
+
+<!-- ===== MODULE 2: APPEAL GENERATOR ===== -->
+<div data-id="327" id="module-2" style="display:none;">
+
+<!-- Insurance Information -->
+<div data-id="328" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<h3 data-id="329" style="font-size:1.1rem;font-weight:700;color:#272320;margin-bottom:16px;"><i data-id="330" data-lucide="building-2" class="w-5 h-5" style="display:inline;vertical-align:middle;margin-right:6px;color:#dc2626;"></i>Insurance Information</h3>
+<div data-id="331" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+<div data-id="332">
+<label data-id="333" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;">Primary Insurer *</label>
+<select data-id="334" id="ap-primary-insurer" style="width:100%;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;background:#fff;">
+<option data-id="335" value="">— Select Primary Insurer —</option>
+<optgroup data-id="336" label="─── Clinical Criteria Standards ───">
+<option data-id="337" value="interqual">InterQual Criteria (MCG)</option>
+<option data-id="338" value="milliman">Milliman Care Guidelines (MCG)</option>
+</optgroup>
+<optgroup data-id="339" label="─── Washington State ───">
+<option data-id="340" value="wa_li">WA Labor &amp; Industries (L&amp;I)</option>
+<option data-id="341" value="wa_apple_health_chpw">Apple Health — Community Health Plan of WA (CHPW)</option>
+<option data-id="342" value="wa_apple_health_coordinated">Apple Health — Coordinated Care (WA Medicaid)</option>
+<option data-id="343" value="wa_lifewise">LifeWise Health Plan of Washington</option>
+<option data-id="344" value="wa_bridgespan">BridgeSpan Health Company</option>
+<option data-id="345" value="wa_ump">WA Uniform Medical Plan (UMP / PEBB)</option>
+</optgroup>
+<optgroup data-id="346" label="─── All Other Insurers ───">
+<option data-id="347" value="aetna">Aetna</option><option data-id="348" value="anthem">Anthem Blue Cross</option><option data-id="349" value="bcbs">Blue Cross Blue Shield</option><option data-id="350" value="blueshieldca">Blue Shield of California</option><option data-id="351" value="centene">Centene / Ambetter</option><option data-id="352" value="cigna">Cigna / Evernorth</option><option data-id="353" value="coordinated_care">Coordinated Care (Evolent)</option><option data-id="354" value="firsthealth">First Health / Coventry</option><option data-id="355" value="healthnet">Health Net</option><option data-id="356" value="humana">Humana</option><option data-id="357" value="kaiser">Kaiser Permanente</option><option data-id="358" value="medicaid">Medicaid (State)</option><option data-id="359" value="medicare">Medicare (CMS)</option><option data-id="360" value="medicare_advantage">Medicare Advantage</option><option data-id="361" value="molina">Molina Healthcare</option><option data-id="362" value="multiplan">MultiPlan / PHCS</option><option data-id="363" value="oscar">Oscar Health</option><option data-id="364" value="premera">Premera Blue Cross</option><option data-id="365" value="regence">Regence Blue Shield</option><option data-id="366" value="tricare">TriCare / Military</option><option data-id="367" value="uhc">UnitedHealthcare (UHC / Optum)</option>
+</optgroup>
+</select>
+<div data-id="368" id="m2-ma-subfield-primary" class="ma-subfield" style="margin-top:8px;">
+<label data-id="369" style="font-size:0.82rem;font-weight:600;color:#4c4642;display:block;margin-bottom:4px;">Medicare Advantage Plan</label>
+<select data-id="370" id="m2-ma-plan-primary" style="width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;background:#fff;">
+<option data-id="371" value="">— Select MA Plan —</option>
+<option data-id="372">Aetna Medicare Advantage</option><option data-id="373">Anthem Medicare Advantage</option><option data-id="374">Blue Cross Blue Shield Medicare Advantage</option><option data-id="375">Cigna Medicare Advantage</option><option data-id="376">Devoted Health</option><option data-id="377">Humana Medicare Advantage</option><option data-id="378">Kaiser Medicare Advantage</option><option data-id="379">Premera Medicare Advantage</option><option data-id="380">Regence Medicare Advantage</option><option data-id="381">UnitedHealthcare Medicare Advantage (AARP)</option><option data-id="382">WellCare Medicare Advantage</option><option data-id="383">Other (specify below)</option>
+</select>
+<input data-id="384" type="text" id="m2-ma-other-primary" placeholder="Enter MA plan name..." style="display:none;width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;margin-top:6px;">
+</div>
+</div>
+<div data-id="385">
+<label data-id="386" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;">Secondary Insurer</label>
+<select data-id="387" id="ap-secondary-insurer" style="width:100%;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;background:#fff;">
+<option data-id="388" value="">None / N/A</option>
+<optgroup data-id="389" label="─── Clinical Criteria Standards ───">
+<option data-id="390" value="interqual">InterQual Criteria (MCG)</option>
+<option data-id="391" value="milliman">Milliman Care Guidelines (MCG)</option>
+</optgroup>
+<optgroup data-id="392" label="─── Washington State ───">
+<option data-id="393" value="wa_li">WA Labor &amp; Industries (L&amp;I)</option>
+<option data-id="394" value="wa_apple_health_chpw">Apple Health — Community Health Plan of WA (CHPW)</option>
+<option data-id="395" value="wa_apple_health_coordinated">Apple Health — Coordinated Care (WA Medicaid)</option>
+<option data-id="396" value="wa_lifewise">LifeWise Health Plan of Washington</option>
+<option data-id="397" value="wa_bridgespan">BridgeSpan Health Company</option>
+<option data-id="398" value="wa_ump">WA Uniform Medical Plan (UMP / PEBB)</option>
+</optgroup>
+<optgroup data-id="399" label="─── All Other Insurers ───">
+<option data-id="400" value="aetna">Aetna</option><option data-id="401" value="anthem">Anthem Blue Cross</option><option data-id="402" value="bcbs">Blue Cross Blue Shield</option><option data-id="403" value="blueshieldca">Blue Shield of California</option><option data-id="404" value="centene">Centene / Ambetter</option><option data-id="405" value="cigna">Cigna / Evernorth</option><option data-id="406" value="coordinated_care">Coordinated Care (Evolent)</option><option data-id="407" value="firsthealth">First Health / Coventry</option><option data-id="408" value="healthnet">Health Net</option><option data-id="409" value="humana">Humana</option><option data-id="410" value="kaiser">Kaiser Permanente</option><option data-id="411" value="medicaid">Medicaid (State)</option><option data-id="412" value="medicare">Medicare (CMS)</option><option data-id="413" value="medicare_advantage">Medicare Advantage</option><option data-id="414" value="molina">Molina Healthcare</option><option data-id="415" value="multiplan">MultiPlan / PHCS</option><option data-id="416" value="oscar">Oscar Health</option><option data-id="417" value="premera">Premera Blue Cross</option><option data-id="418" value="regence">Regence Blue Shield</option><option data-id="419" value="tricare">TriCare / Military</option><option data-id="420" value="uhc">UnitedHealthcare (UHC / Optum)</option>
+</optgroup>
+</select>
+<div data-id="421" id="m2-ma-subfield-secondary" class="ma-subfield" style="margin-top:8px;">
+<label data-id="422" style="font-size:0.82rem;font-weight:600;color:#4c4642;display:block;margin-bottom:4px;">Medicare Advantage Plan</label>
+<select data-id="423" id="m2-ma-plan-secondary" style="width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;background:#fff;">
+<option data-id="424" value="">— Select MA Plan —</option>
+<option data-id="425">Aetna Medicare Advantage</option><option data-id="426">Anthem Medicare Advantage</option><option data-id="427">Blue Cross Blue Shield Medicare Advantage</option><option data-id="428">Cigna Medicare Advantage</option><option data-id="429">Devoted Health</option><option data-id="430">Humana Medicare Advantage</option><option data-id="431">Kaiser Medicare Advantage</option><option data-id="432">Premera Medicare Advantage</option><option data-id="433">Regence Medicare Advantage</option><option data-id="434">UnitedHealthcare Medicare Advantage (AARP)</option><option data-id="435">WellCare Medicare Advantage</option><option data-id="436">Other (specify below)</option>
+</select>
+<input data-id="437" type="text" id="m2-ma-other-secondary" placeholder="Enter MA plan name..." style="display:none;width:100%;padding:8px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;margin-top:6px;">
+</div>
+</div>
+</div>
+</div>
+
+<!-- Insurer Info Panel -->
+<div data-id="438" id="ap-insurer-info" class="hidden" style="margin-bottom:16px;"></div>
+
+<!-- Specialty -->
+<div data-id="439" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<label data-id="440" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;"><i data-id="441" data-lucide="stethoscope" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:4px;color:#dc2626;"></i>Specialty</label>
+<select data-id="442" id="ap-specialty" style="width:100%;max-width:400px;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;background:#fff;">
+<option data-id="443" value="">— Select Specialty —</option>
+<option data-id="444">Spine Surgery</option><option data-id="445">Orthopedic Surgery</option><option data-id="446">Neurosurgery</option><option data-id="447">Pain Management</option><option data-id="448">General Surgery</option><option data-id="449">Interventional Radiology</option><option data-id="450">Cardiology</option><option data-id="451">Oncology</option>
+</select>
+</div>
+
+<!-- CPT Codes -->
+<div data-id="452" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<label data-id="453" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;"><i data-id="454" data-lucide="hash" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:4px;color:#dc2626;"></i>CPT Codes</label>
+<div data-id="455" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+<select data-id="456" id="ap-cpt-quickadd" style="flex:1;min-width:240px;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.85rem;background:#fff;">
+<option data-id="457" value="">⚡ Quick-Add CPT Code</option>
+<option data-id="458" value="22551">22551 - Cervical Fusion (ACDF)</option>
+<option data-id="459" value="22552">22552 - Cervical Fusion Additional Level</option>
+<option data-id="460" value="22612">22612 - Lumbar Posterolateral Fusion</option>
+<option data-id="461" value="22630">22630 - Lumbar Posterior Interbody Fusion (PLIF)</option>
+<option data-id="462" value="22633">22633 - Lumbar Combined Fusion (TLIF)</option>
+<option data-id="463" value="22634">22634 - Lumbar Fusion Additional Level</option>
+<option data-id="464" value="22840">22840 - Posterior Instrumentation</option>
+<option data-id="465" value="22842">22842 - Segmental Instrumentation</option>
+<option data-id="466" value="22853">22853 - Interbody Device/Cage</option>
+<option data-id="467" value="63005">63005 - Lumbar Laminectomy</option>
+<option data-id="468" value="63030">63030 - Lumbar Discectomy</option>
+<option data-id="469" value="63042">63042 - Lumbar Re-exploration</option>
+<option data-id="470" value="63047">63047 - Lumbar Decompression Single</option>
+<option data-id="471" value="63048">63048 - Lumbar Decompression Additional</option>
+<option data-id="472" value="22856">22856 - Cervical Disc Replacement</option>
+</select>
+</div>
+<input data-id="473" type="text" id="ap-cpt-codes" placeholder="Enter CPT codes (comma-separated) or use Quick-Add above" style="width:100%;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;">
+</div>
+
+<!-- Clinical Documentation -->
+<div data-id="474" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<label data-id="475" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;"><i data-id="476" data-lucide="file-text" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:4px;color:#dc2626;"></i>Clinical Documentation / Clinic Note</label>
+<div data-id="477" class="phi-warning">🔒 For absolute HIPAA security, remove all PHI (patient name, DOB, MRN, SSN, address, phone) from notes before pasting.</div>
+<textarea data-id="478" id="ap-clinic-note" rows="10" placeholder="Paste de-identified clinic note here..." style="width:100%;padding:12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;line-height:1.6;"></textarea>
+<button data-id="479" id="ap-load-sample-btn" style="margin-top:8px;background:#efeae7;color:#4c4642;border:none;padding:8px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">📋 Load Sample Note</button>
+<label data-id="480" id="ap-import-file-label" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-left:8px;background:#efeae7;color:#4c4642;border:none;padding:8px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+  📂 Import PDF or TXT
+  <input data-id="481" type="file" accept=".pdf,.txt" id="ap-import-file" style="display:none;">
+</label>
+</div>
+
+<!-- Denial Category -->
+<div data-id="482" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;padding:20px;margin-bottom:16px;">
+<label data-id="483" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;"><i data-id="484" data-lucide="alert-triangle" class="w-4 h-4" style="display:inline;vertical-align:middle;margin-right:4px;color:#dc2626;"></i>Denial Category</label>
+<select data-id="485" id="ap-denial-category" style="width:100%;max-width:400px;padding:10px 12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;background:#fff;">
+<option data-id="486" value="">— Select Denial Category —</option>
+<option data-id="487">Medical Necessity</option><option data-id="488">Experimental/Investigational</option><option data-id="489">Documentation Insufficient</option><option data-id="490">Out of Network</option><option data-id="491">Frequency/Duration</option><option data-id="492">Pre-certification Not Obtained</option><option data-id="493">Coding Error</option><option data-id="494">Benefit Exclusion</option>
+</select>
+</div>
+
+<!-- Denial Letter -->
+<div data-id="495" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;border-left:4px solid #dc2626;padding:20px;margin-bottom:16px;">
+<label data-id="496" style="font-size:0.85rem;font-weight:600;color:#4c4642;display:block;margin-bottom:6px;">📋 Denial Letter Content</label>
+<textarea data-id="497" id="ap-denial-letter" rows="8" placeholder="Paste denial letter content here..." style="width:100%;padding:12px;border:1px solid #dac6b7;border-radius:8px;font-size:0.9rem;line-height:1.6;"></textarea>
+<label data-id="498" id="ap-import-denial-label" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:#efeae7;color:#4c4642;border:none;padding:8px 16px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+  📂 Import Denial Letter PDF or TXT
+  <input data-id="499" type="file" accept=".pdf,.txt" id="ap-import-denial-file" style="display:none;">
+</label>
+</div>
+
+<!-- Action Buttons -->
+<div data-id="500" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
+<button data-id="501" id="ap-run-analysis-btn" style="background:#2563eb;color:#fff;border:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;">▶️ Generate Appeal Analysis</button>
+<div data-id="502">
+<button data-id="503" id="ap-copy-prompt-btn" style="background:#7c3aed;color:#fff;border:none;padding:14px 28px;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;">🤖 Copy Appeal Prompt for AI</button>
+<p data-id="504" style="font-size:0.78rem;color:#746d68;font-style:italic;margin-top:4px;">Copies a formatted prompt → paste into any AI platform for an AI-powered letter</p>
+</div>
+<button data-id="505" id="ap-open-copilot-btn" class="open-copilot-btn">🤖 Open Copilot Chat</button>
+</div>
+
+<!-- Results -->
+<div data-id="506" id="ap-results" class="hidden" style="margin-bottom:16px;"></div>
+
+<!-- Analyze Next Case -->
+<div data-id="507" style="text-align:center;margin-bottom:24px;">
+<button data-id="508" id="ap-next-case-btn" class="next-case-btn" style="width:100%;max-width:400px;">🔄 Analyze Next Case</button>
+</div>
+</div>
+
+<!-- Quick Reference Panel -->
+<div data-id="509" style="background:#fffbf8;border-radius:12px;border:1px solid #dac6b7;margin-bottom:24px;overflow:hidden;">
+<button data-id="510" id="quick-ref-toggle-btn" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:none;border:none;cursor:pointer;font-size:1rem;font-weight:700;color:#272320;">
+<span data-id="511">📋 Quick Reference — All Insurers</span>
+<span data-id="512" id="quick-ref-chevron" style="transition:transform 0.3s;transform:rotate(180deg);font-size:1.2rem;">▾</span>
+</button>
+<div data-id="513" id="quick-ref-content" class="collapsible-content">
+<div data-id="514" style="padding:0 20px 20px;overflow-x:auto;">
+<table data-id="515" style="width:100%;border-collapse:collapse;font-size:0.82rem;min-width:700px;">
+<thead data-id="516"><tr data-id="517" style="background:#efeae7;">
+<th data-id="518" style="padding:10px;text-align:left;border-bottom:2px solid #dac6b7;">Insurer</th>
+<th data-id="519" style="padding:10px;text-align:left;border-bottom:2px solid #dac6b7;">Policy Number</th>
+<th data-id="520" style="padding:10px;text-align:left;border-bottom:2px solid #dac6b7;">Conservative Tx Duration</th>
+<th data-id="521" style="padding:10px;text-align:left;border-bottom:2px solid #dac6b7;">Prior Auth Phone</th>
+</tr></thead>
+<tbody data-id="522" id="quick-ref-tbody"></tbody>
+</table>
+</div>
+</div>
+</div>
+
+</main>
+
+<!-- Footer -->
+<footer data-id="523" style="background:#0f172a;color:#94a3b8;padding:20px;text-align:center;">
+<p data-id="524" style="font-size:0.88rem;font-weight:500;margin-bottom:4px;">NecessityIQ — AMMC, 2026, v. 2.0 | For clinical decision support only — not a substitute for medical judgment</p>
+<p data-id="525" style="font-size:0.75rem;color:#64748b;">Made by Copilot</p>
+</footer>
+
+<!-- Floating Help Button -->
+<button data-id="526" id="floating-help-btn" title="Show Quick Reference Guide" style="position:fixed;bottom:24px;right:24px;z-index:999;width:48px;height:48px;border-radius:50%;background:#2563eb;color:#fff;border:none;font-size:1.3rem;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,0.4);display:flex;align-items:center;justify-content:center;">📖</button>
+
+<script>
+lucide.createIcons();
+
+// Populate Quick Reference table
+try {
+  var tbody = document.getElementById('quick-ref-tbody');
+  var keys = Object.keys(insurerData);
+  keys.sort(function(a,b){ return insurerData[a].name.localeCompare(insurerData[b].name); });
+  keys.forEach(function(key){
+    var d = insurerData[key];
+    var tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #efeae7';
+    tr.innerHTML = '<td style="padding:8px 10px;font-weight:600;">'+d.name+'</td><td style="padding:8px 10px;">'+d.policyNumber+'</td><td style="padding:8px 10px;">'+(d.conservativeTxDuration||'Per payer criteria')+'</td><td style="padding:8px 10px;">'+d.priorAuthPhone+'</td>';
+    tbody.appendChild(tr);
+  });
+} catch(e){}
+
+// Wire up all event listeners (CSP-compliant — no inline onclick)
+document.getElementById('welcome-close-x-btn').addEventListener('click', closeWelcome);
+document.getElementById('welcome-got-it-btn').addEventListener('click', closeWelcome);
+document.getElementById('floating-help-btn').addEventListener('click', openWelcome);
+
+document.getElementById('instructions-toggle-btn').addEventListener('click', toggleInstructions);
+document.getElementById('quick-ref-toggle-btn').addEventListener('click', toggleQuickRef);
+
+document.getElementById('tab-prior-auth').addEventListener('click', function(){ switchToModule('1'); });
+document.getElementById('tab-appeal').addEventListener('click', function(){ switchToModule('2'); });
+
+// HIPAA modal buttons
+document.getElementById('hipaa-close-btn').addEventListener('click', closeHipaaModal);
+document.getElementById('hipaa-acknowledge-btn').addEventListener('click', acknowledgeHipaaAndCopy);
+document.getElementById('hipaa-cancel-btn').addEventListener('click', closeHipaaModal);
+
+// Module 1 — Prior Authorization
+document.getElementById('pa-primary-insurer').addEventListener('change', function(){
+  handleMASubfield(this,'m1-ma-subfield-primary','m1-ma-other-primary');
+  showInsurerInfo('pa-primary-insurer','pa-insurer-info');
+});
+document.getElementById('pa-secondary-insurer').addEventListener('change', function(){
+  handleMASubfield(this,'m1-ma-subfield-secondary','m1-ma-other-secondary');
+});
+document.getElementById('m1-ma-plan-primary').addEventListener('change', function(){
+  handleMAPlanChange(this,'m1-ma-other-primary');
+});
+document.getElementById('m1-ma-plan-secondary').addEventListener('change', function(){
+  handleMAPlanChange(this,'m1-ma-other-secondary');
+});
+document.getElementById('pa-cpt-quickadd').addEventListener('change', function(){
+  handleCPTQuickAdd('pa-cpt-quickadd','pa-cpt-codes');
+});
+document.getElementById('pa-load-sample-btn').addEventListener('click', function(){
+  loadSampleNote('pa-clinic-note');
+});
+document.getElementById('pa-run-analysis-btn').addEventListener('click', function(){
+  runAnalysis('pa');
+});
+document.getElementById('pa-copy-prompt-btn').addEventListener('click', buildPAPrompt);
+document.getElementById('pa-open-copilot-btn').addEventListener('click', openCopilotChat);
+document.getElementById('pa-next-case-btn').addEventListener('click', resetForNextCase);
+
+// File import listeners — Module 1
+document.getElementById('pa-import-file').addEventListener('change', function(){
+  importFileToTextarea(this,'pa-clinic-note');
+});
+
+// Module 2 — Appeal
+document.getElementById('ap-primary-insurer').addEventListener('change', function(){
+  handleMASubfield(this,'m2-ma-subfield-primary','m2-ma-other-primary');
+  showInsurerInfo('ap-primary-insurer','ap-insurer-info');
+});
+document.getElementById('ap-secondary-insurer').addEventListener('change', function(){
+  handleMASubfield(this,'m2-ma-subfield-secondary','m2-ma-other-secondary');
+});
+document.getElementById('m2-ma-plan-primary').addEventListener('change', function(){
+  handleMAPlanChange(this,'m2-ma-other-primary');
+});
+document.getElementById('m2-ma-plan-secondary').addEventListener('change', function(){
+  handleMAPlanChange(this,'m2-ma-other-secondary');
+});
+document.getElementById('ap-cpt-quickadd').addEventListener('change', function(){
+  handleCPTQuickAdd('ap-cpt-quickadd','ap-cpt-codes');
+});
+document.getElementById('ap-load-sample-btn').addEventListener('click', function(){
+  loadSampleNote('ap-clinic-note');
+});
+document.getElementById('ap-run-analysis-btn').addEventListener('click', function(){
+  runAnalysis('ap');
+});
+document.getElementById('ap-copy-prompt-btn').addEventListener('click', buildAppealPrompt);
+document.getElementById('ap-open-copilot-btn').addEventListener('click', openCopilotChat);
+document.getElementById('ap-next-case-btn').addEventListener('click', resetForNextCase);
+
+// File import listeners — Module 2
+document.getElementById('ap-import-file').addEventListener('change', function(){
+  importFileToTextarea(this,'ap-clinic-note');
+});
+document.getElementById('ap-import-denial-file').addEventListener('change', function(){
+  importFileToTextarea(this,'ap-denial-letter');
+});
+</script>
+</body>
+</html>
